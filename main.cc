@@ -961,7 +961,7 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 
 		if(pH) {
 			// Confirm port number.
-			pH->setAddr(args.chid);
+			pH->set_addr(args.chid);
 
 			// initial connection
 			if (pH->get_status() == 0) { 
@@ -1086,7 +1086,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 		// This is a reconnect or initial connection.
 		if(pH->get_status()==2 || pH->get_status()==0) {
 	 		connected_iocs ++;
-			pH->setAddr(args.chid);
+			pH->set_addr(args.chid);
 			ca_set_puser(args.chid,pH);
 		}
 
