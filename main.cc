@@ -33,7 +33,7 @@
 #endif
 
 #define  pIocname(isFilname,pPath) (isFilename ? \
-     basename((char *)pPath): basename(dirname((char *)pPath)))
+	basename((char *)pPath): basename(dirname((char *)pPath)))
 
 //prototypes
 int parseDirectoryFile (const char *pFileName);
@@ -598,7 +598,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 	int 	removed = 0;
 
 	// Set network info 
-    strncpy(shortHN, pIocname(filenameIsIocname,(char *)pFileName), PV_NAME_SZ-1);
+	strncpy(shortHN, pIocname(filenameIsIocname,(char *)pFileName), PV_NAME_SZ-1);
 	memset((char *)&ipa,0,sizeof(ipa));
 	ipa.sin_family = AF_INET;
 	ipa.sin_port = 0u; // use the default CA server port
