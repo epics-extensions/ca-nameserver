@@ -32,7 +32,7 @@
 #define TRUE 1
 #endif
 
-#define  pIocname(isFilname,pPath) (isFilename ? \
+#define  pIocname(isFilname,pPath) (filenameIsIocname ? \
 	basename((char *)pPath): basename(dirname((char *)pPath)))
 
 //prototypes
