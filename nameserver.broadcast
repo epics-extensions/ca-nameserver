@@ -1,0 +1,19 @@
+# This file should contain only ONE command line
+# Valid forms of the command line in this file:
+#
+#  1) DENY    [FROM] [<host> ...]
+#  2) ALLOW   [FROM] [<host> ...]
+#
+# where:
+#        <host>            = unqualified host name
+#
+# DENY / DENY FROM:
+#  The nameserver will not broadcast ca requests for an unknown PV name
+#  when the request is from one of the specified hosts
+#
+# ALLOW / ALLOW FROM:
+#  The nameserver will broadcast ca requests for an unknown PV name
+#  only when the request is from one of the specified hosts
+#
+
+DENY FROM phoebus,mercury

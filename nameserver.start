@@ -1,0 +1,51 @@
+#!/bin/sh
+#
+# Unix shell script to start stop the EPICS CA nameserver
+#
+
+# Command Line Options 
+# The nameserver front end is modelled after the EPICS PCAS gateway code, and like the gateway,
+# it may be run manually or as a daemon process.  As a daemon process, the executable can be
+# signaled to quit, to restart or to display run-time statistics. A log file may be created in manual
+# mode and will be created if the server is run as a daemon. 
+# 
+# Command line arguments include: 
+#     -b broadcastfilename ......allow/deny unknown pv broadcasts from specified hosts" 
+#     -f filename ......modify the name of the default input file "pvDirectory.txt" 
+#     -d nnn.............turn on and set the level of PCAS debugging 
+#     -l logfilename ..requests that logging  be done and allows specification of logfile name 
+#     -c directory .......change operational directory 
+#     -s ....................use server mode 
+#     -h nnn ..............set hashtable size (default = 300,000) 
+#     -v ....................verbose mode 
+#     -n ....................host name (iocname) is name of signal list file
+# 
+# Included with the distributed code is the file "start_nameserver". This script sets environmental
+# variables and executes the nameserver process with standard arguments. 
+
+PVDATA_DIR=/usr/local/iocapps/iocinfo/pvdata
+HOME_DIR=/home/phoebus/JBA/jba_projects/jlab/nameserverTestData/home
+
+# Note: Default for EPICS_CAS_SERVER_PORT is 5064
+# Test
+EPICS_CAS_SERVER_PORT=5062
+export EPICS_CAS_SERVER_PORT
+
+##### EPICS_CAS_BEACON_PORT is not used in R3.13
+#####EPICS_CAS_BEACON_PORT=5061
+#####export EPICS_CAS_BEACON_PORT
+
+## -------      Create the pvDirectory.txt file
+#if [ -f $HOME_DIR/pvDirectory.txt ] ;then
+#/bin/rm  $HOME_DIR/pvDirectory.txt
+#fi
+#find $PVDATA_DIR -type f -print | grep -v "\/all\/" > $HOME_DIR/pvDirectory.txt
+
+# -------      Start the nameserver in server mode
+#$HOME_DIR/caDirServ -n -s -l nameserver.log -c $HOME_DIR -b nameserver.broadcast &
+
+# -------      Start the namesever in verbose mode 
+#$HOME_DIR/caDirServ -n -l nameserver.log -c $HOME_DIR -b nameserver.broadcast &
+#$HOME_DIR/caDirServ -n -l nameserver.log -c $HOME_DIR &
+$HOME_DIR/caDirServ -n -l nameserver.log -c $HOME_DIR -b nameserver.broadcast &
+

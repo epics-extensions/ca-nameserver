@@ -12,6 +12,7 @@
 #endif
 #include <cadef.h>
 
+#ifdef BROADCAST_ACCESS
 #if EPICS_REVISION > 13
 #include <osiSock.h>
 #else
@@ -24,6 +25,7 @@ inline casCoreClient * casCtx::getClient() const
 {
     return this->pClient;
 }
+#endif
 #endif
 
 static directoryServer *self = 0;
@@ -39,7 +41,9 @@ extern FILE *never_ptr;
 static struct {
 	double requests;
 	double broadcast;
+#ifdef BROADCAST_ACCESS
 	double broadcast_denyed;
+#endif
 	double pending;
 	double host_error;
 	double hit;
@@ -78,7 +82,9 @@ directoryServer::directoryServer( unsigned pvCount) :
 	signal(SIGUSR2, sigusr1);
 	signal(SIGTERM, sigusr1);
 	signal(SIGINT, sigusr1);
-	as = 0;
+#ifdef BROADCAST_ACCESS
+	bcA = 0;
+#endif
 
     resLibStatus = this->stringResTbl.init(pvCount);
     if (resLibStatus) {
@@ -99,7 +105,9 @@ directoryServer::directoryServer( unsigned pvCount) :
     }
 	stat.requests = 0;
 	stat.broadcast = 0;
+#ifdef BROADCAST_ACCESS
 	stat.broadcast_denyed = 0;
+#endif
 	stat.pending = 0;
 	stat.host_error = 0;
 	stat.host_down = 0;
@@ -363,32 +371,33 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 				return (pverDoesNotExistHere);
 			}
 		}
+#ifdef BROADCAST_ACCESS
 		// Broadcast for the requested pv.
-		if (this->broadcastAllowed(ctx,pPVName)) {
-			status = ca_search_and_connect(shortPV,&chd,processChangeConnectionEvent,0);
-			if (status != ECA_NORMAL) {
-				fprintf(stderr,"ca_search failed on channel name: [%s]\n",shortPV);
+		if (!this->broadcastAllowed(ctx)) {
+			stat.broadcast_denyed++;
+			return (pverDoesNotExistHere);
+		}
+#endif
+		status = ca_search_and_connect(shortPV,&chd,processChangeConnectionEvent,0);
+		if (status != ECA_NORMAL) {
+			fprintf(stderr,"ca_search failed on channel name: [%s]\n",shortPV);
+			return pverDoesNotExistHere;
+		}
+		else {
+			// Create a node for the linked list of pending connections
+			pNN = new namenode(shortPV, chd, 0);
+			pNN->set_otime();
+			if(pNN == NULL) {
+				fprintf(stderr,"Failed to create namenode %s\n", shortPV);
 				return pverDoesNotExistHere;
 			}
-			else {
-				// Create a node for the linked list of pending connections
-				pNN = new namenode(shortPV, chd, 0);
-				pNN->set_otime();
-				if(pNN == NULL) {
-					fprintf(stderr,"Failed to create namenode %s\n", shortPV);
-					return pverDoesNotExistHere;
-				}
-				// Add this pv to the list of pending pv connections 
-				this->addNN(pNN);
-				if(verbose)
-					fprintf(stdout, "broadcasting for %s\n", shortPV);
-				stat.broadcast++;
-				return (pverDoesNotExistHere);
-			}
-		} else {
-				stat.broadcast_denyed++;
-				return (pverDoesNotExistHere);
-			}
+			// Add this pv to the list of pending pv connections 
+			this->addNN(pNN);
+			if(verbose)
+				fprintf(stdout, "broadcasting for %s\n", shortPV);
+			stat.broadcast++;
+			return (pverDoesNotExistHere);
+		}
 	}
 	return (pverDoesNotExistHere);
 }
@@ -448,7 +457,9 @@ void directoryServer::show (unsigned level) const
 		fprintf(stdout,"\nRequests: \t%10.0f (%9.2f/hour)\n", stat.requests, stat.requests/hours);
 		fprintf(stdout,"\nHits: \t\t%10.0f (%9.2f/hour)\n", stat.hit, stat.hit/hours);
 		fprintf(stdout,"Broadcasts: \t%10.0f (%9.2f/hour)\n", stat.broadcast, stat.broadcast/hours);
+#ifdef BROADCAST_ACCESS
 		fprintf(stdout,"Broadcasts_denyed:  %10.0f (%9.2f/hour)\n", stat.broadcast_denyed, stat.broadcast_denyed/hours);
+#endif
 		fprintf(stdout,"Host_error: \t%10.0f (%9.2f/hour)\n", stat.host_error, stat.host_error/hours);
 		fprintf(stdout,"Pending: \t%10.0f (%9.2f/hour)\n", stat.pending, stat.pending/hours);
 		fprintf(stdout,"Host_down: \t%10.0f (%9.2f/hour)\n", stat.host_down, stat.host_down/hours);
@@ -458,7 +469,9 @@ void directoryServer::show (unsigned level) const
 		fprintf(stdout,"\nRequests: %f\n", stat.requests);
 		fprintf(stdout,"\nHits: %f\n", stat.hit);
 		fprintf(stdout,"Broadcasts: %f\n", stat.broadcast);
+#ifdef BROADCAST_ACCESS
 		fprintf(stdout,"Broadcasts_denyed: %f\n", stat.broadcast_denyed);
+#endif
 		fprintf(stdout,"Host_error: %f\n", stat.host_error);
 		fprintf(stdout,"Pending: %f\n", stat.pending);
 		fprintf(stdout,"Host_down: %f\n", stat.host_down);
@@ -468,7 +481,9 @@ void directoryServer::show (unsigned level) const
 	fflush(stdout);
 
 	stat.broadcast = 0;
+#ifdef BROADCAST_ACCESS
 	stat.broadcast_denyed = 0;
+#endif
 	stat.pending = 0;
 	stat.host_error = 0;
 	stat.hit = 0;
@@ -477,47 +492,37 @@ void directoryServer::show (unsigned level) const
 	last_time = first.tv_sec;
 }
 
-int directoryServer::broadcastAllowed (const casCtx& ctx, const char *pvname)
+#ifdef BROADCAST_ACCESS
+int directoryServer::broadcastAllowed (const casCtx& ctx)
 {
-	gateAsEntry* pNode;
 	char hostname[GATE_MAX_HOSTNAME_LENGTH];
 	int len,i;
+	char *ptr;
 
-	if (!this->as) return FALSE;
+	if (this->bcA==0) return TRUE;
 
     casClient *pClient;
     pClient=(casClient *)ctx.getClient();
 
 	// Make the hash name
     pClient->clientHostName(hostname, sizeof(hostname));
+	if (ptr=strchr(hostname,HN_DELIM)) *ptr=0x0;
+	if (ptr=strchr(hostname,HN_DELIM2)) *ptr=0x0;
 
-	// Get the hostname and check if it is allowed
-	//getClientHostName(ctx, hostname, sizeof(hostname));
-
-    len = strlen(hostname);
-    for(i=0; i<len; i++){
-        if(hostname[i] == HN_DELIM || hostname[i] == HN_DELIM2 ){
-            hostname[i] = 0x0;
-            break;
-        }
-    }
-
-	// See if requested name is allowed and check for aliases
-	if ( !(pNode = this->as->findEntry(pvname, hostname)) )
+fprintf(stdout,"Broadcast requested from host %s \n", hostname);
+	// See if broadcast is allowed for this host
+	if (this->bcA->broadcastAllowed(hostname))
 	{
-		gateDebug2(1,"gateServer::broadcastAllowed() %s (from %s) is not allowed\n",
-		  pvname, hostname);
-		if (verbose) fprintf(stdout,"Broadcast for  %s (from %s ) NOT allowed\n", pvname,hostname);
-//fflush(stdout);
-
-		return FALSE;
+fprintf(stdout,"Broadcast from %s IS allowed\n", hostname);
+        if (verbose) fprintf(stdout,"Broadcast from %s IS allowed\n", hostname);
+        //fflush(stdout);
+		return TRUE;
 	}
 
-    gateDebug1(1,"gateServer::broadCastAllowed() %s \n",
-               pvname);
-    if (verbose) fprintf(stdout,"Broadcast for  %s (from %s ) IS allowed\n", pvname,hostname);
-//fflush(stdout);
-
-	return TRUE;
+fprintf(stdout,"Broadcast from %s NOT allowed\n", hostname);
+       if (verbose) fprintf(stdout,"Broadcast from %s NOT allowed\n", hostname);
+       //fflush(stdout);
+		return FALSE;
 }
+#endif
 

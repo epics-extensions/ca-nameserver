@@ -18,7 +18,9 @@
 #include "osiTime.h"
 #include "bsdSocketResource.h"
 
-#include "gateAs.h"
+#ifdef BROADCAST_ACCESS
+#include "broadcastAccess.h"
+#endif
 
 // *** SITE SPECIFIC MODIFICATIONS TO BE EDITED  ***
 // Handles cases where ca_host_name(chid) returns iocname.jlab.acc.org:5064
@@ -32,6 +34,10 @@
 // Next two can be defined to suit your site
 #define DEFAULT_HASH_SIZE 300000
 #define MAX_IOCS 300
+
+#ifdef BROADCAST_ACCESS
+#define MAX_BROADCAST_HOSTS 20
+#endif
 
 #define HOST_NAME_SZ 80
 #define PV_NAME_SZ 80
@@ -168,7 +174,9 @@ public:
 	void show (unsigned level) const;
 
 	pvExistReturn pvExistTest (const casCtx&, const char *pPVName);
-	int broadcastAllowed (const casCtx&, const char *pPVName);
+#ifdef BROADCAST_ACCESS
+	int broadcastAllowed (const casCtx&);
+#endif
 	int installPVName (const char *pvname, const char *pHostName);
 	int installHostName ( const char *pHostName, const char *pPath, 
 	struct sockaddr_in &ipaIn);
@@ -182,7 +190,9 @@ public:
 	resTable<pHost,stringId> hostResTbl;	//!< hash of installed ioc's 
 	resTable<pvE,stringId> stringResTbl;	//!< hash of installed pv's
 	resTable<never,stringId> neverResTbl;	//!< hash of never connected pv's
-	gateAs* as;
+#ifdef BROADCAST_ACCESS
+	broadcastAccess* bcA;
+#endif
 private:
 
 	static  void sigusr1(int); 

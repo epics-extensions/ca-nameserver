@@ -73,8 +73,9 @@ extern int main (int argc, char *argv[])
 	char		fileName[128];					//!< default input filename
 	char		log_file[128];					//!< default log filename
 	char		home_dir[128];					//!< default home directory
-	char*		pvlist_file=0;					//!< default pvlist filename
-	char*		access_file=0;					//!< default access security filename
+#ifdef BROADCAST_ACCESS
+	char*		broadcast_file=0;				//!< default broadcast filename
+#endif
 	int			server_mode = 0;				//!< running as a daemon = 1
 	unsigned 	hash_table_size = 0;			//!< user requested size
 	aitBool		forever = aitTrue;
@@ -96,7 +97,12 @@ extern int main (int argc, char *argv[])
 	//extern char *optarg;
 	//char *errstr;
 	int c;
-    while ((c = getopt(argc, argv, "a:p:d:h:f:l:c:nsv")) != -1){
+#ifdef BROADCAST_ACCESS
+    while ((c = getopt(argc, argv, "b:d:h:f:l:c:nsv")) != -1)
+#else 
+    while ((c = getopt(argc, argv, "d:h:f:l:c:nsv")) != -1)
+#endif
+    {
         switch (c) {
            case 'v':
                 verbose = 1;
@@ -115,14 +121,12 @@ extern int main (int argc, char *argv[])
 				fprintf(stdout,"logging to file: %s\n",log_file);
 				logging_to_file = 1;
                 break;
-           case 'p':
-                pvlist_file=optarg;
-                fprintf(stdout,"pvlist file: %s\n",pvlist_file);
+#ifdef BROADCAST_ACCESS
+           case 'b':
+                broadcast_file=optarg;
+                fprintf(stdout,"broadcast file: %s\n",broadcast_file);
                 break;
-           case 'a':
-                access_file=optarg;
-                fprintf(stdout,"access file: %s\n",access_file);
-                break;
+#endif
            case 's':
                 server_mode = 1;
 				logging_to_file = 1;
@@ -173,8 +177,9 @@ extern int main (int argc, char *argv[])
     fprintf(fd,"\n");
     fprintf(fd,"# options:\n");
     fprintf(fd,"# home=<%s>\n",home_dir);
-    if (pvlist_file) fprintf(fd,"# pvlist file=<%s>\n",pvlist_file);
-    if (access_file) fprintf(fd,"# access file=<%s>\n",access_file);
+#ifdef BROADCAST_ACCESS
+    if (broadcast_file) fprintf(fd,"# broadcast file=<%s>\n",broadcast_file);
+#endif
     fprintf(fd,"# log file=<%s>\n",log_file);
     fprintf(fd,"# list file=<%s>\n",fileName);
     fprintf(fd,"# \n");
@@ -217,7 +222,7 @@ extern int main (int argc, char *argv[])
             NS_RESTART_FILE);
         fd=stderr;
     }
-    fprintf(fd,"\nkill %d # to kill off this gateway\n\n",sid);
+    fprintf(fd,"\nkill %d # to kill off this nameserver\n\n",sid);
     fflush(fd);
 
     if(fd!=stderr) fclose(fd);
@@ -244,8 +249,10 @@ extern int main (int argc, char *argv[])
 		return (-1);
 	}
 
-	// Setup Access Security
-	pCAS->as= new gateAs(pvlist_file,access_file);
+#ifdef BROADCAST_ACCESS
+	// Setup host broadcast access
+	pCAS->bcA= new broadcastAccess(broadcast_file,MAX_BROADCAST_HOSTS);
+#endif
 
 	// Enable watchdog monitoring
 	start_ca_monitor();
