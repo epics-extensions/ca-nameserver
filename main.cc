@@ -930,6 +930,7 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 		connected_iocs ++;
 		fprintf(stdout,"WATCHDOG CONN UP for <%s> on %s state: %d\n", 
 			ca_name(args.chid), hostname, ca_state(args.chid));
+//fprintf(stdout,"WATCHDOG CONN UP host=%s \n", pH->get_hostname());
 		first = epicsTime::getCurrent();
 		ansiDate = first;
 		fprintf(stdout,"*********UP time: %s", asctime(&ansiDate.ansi_tm));
@@ -1030,7 +1031,8 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
     char pvNameStr[PV_NAME_SZ];
 	char *ptr;
 	int 	removed = 0;
-
+	char hostname[HOST_NAME_SZ];
+	ca_get_host_name(args.chid,hostname,HOST_NAME_SZ);
 
 	if (args.op == CA_OP_CONN_DOWN) {
 		connected_iocs --;
@@ -1046,7 +1048,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
             if(pH) delete pH;
 		}
 		else {
-			fprintf(stderr,"CONN DOWN ERROR: HOST %s NOT INSTALLED \n", ca_host_name(args.chid));
+			fprintf(stderr,"CONN DOWN ERROR: HOST %s NOT INSTALLED \n", hostname);
 			fflush(stderr);
 		}
 	    ca_set_puser(args.chid,0);
@@ -1067,16 +1069,16 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 
 		int isHeartbeat = 0;
 
-		stringId id(ca_host_name(args.chid), stringId::refString);
+		stringId id(hostname, stringId::refString);
 		pH = pCAS->hostResTbl.lookup(id);
 		if(!pH) {
-			pH = pCAS->installHostName(ca_host_name(args.chid),0);
+			pH = pCAS->installHostName(hostname,0);
 			if (!pH) { fprintf(stderr,"error installing host: %s\n",
-				ca_host_name(args.chid));
+				hostname);
 				return;
 			}
 			isHeartbeat = 1;
-		    fprintf(stdout,"CONN UP for %s\n", pH->get_hostname()); fflush(stdout);
+		    fprintf(stdout,"CONN UP for %s\n", hostname); fflush(stdout);
 		}
 
 
