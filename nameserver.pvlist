@@ -1,0 +1,78 @@
+# Valid forms of the lines in this file:
+#
+#  1) EVALUATION	  ORDER   <eval_order>
+#  2) <pv_name_pattern>   DENY    [FROM] [<host> ...]
+#  3) <pv_name_pattern>   ALIAS   <actual_pv_name> [<asg> [<asl>]]
+#  4) <pv_name_pattern>   ALLOW   [<asg> [<asl>]]
+#
+# where:
+#        <eval_order>      = DENY, ALLOW      allow rules take precedence
+#                            ALLOW, DENY      deny rules take precedence (default)
+#        <pv_name_pattern> = regular expression that matches PV names
+#        <host>            = unqualified host name
+#        <actual_pv_name>  = substitution pattern that specifies the real PV name
+#                            (\0 ... \9 are replaced by matched sub-expressions)
+#        <asg>             = Access Security Group as specified in AS file   [DEFAULT]
+#        <asl>             = Access Security Level (0 or 1)                  [1]
+#        
+#
+# ORDER:
+#  This will set the evaluation order that is used when a client requests
+#  a PV. Setting this to "DENY, ALLOW" will allow access to a PV name that matches
+#  both a DENY and an ALLOW pattern. "ALLOW, DENY" will make a DENY override an ALLOW
+#  for the same variable. (This is the default.)
+#  NOTE: Matching DENY FROM patterns (with host names) will always override matching
+#        ALLOW patterns.
+#
+# DENY / DENY FROM:
+#  The nameserver will completely ignore requests for any PV that matches the pattern.
+#  Can be used to block the nameserver from broadcasting for groups of PVs.
+#  Naming hosts (DENY FROM) will block the PVs only for the given hosts.
+#
+# ALIAS:
+#  Define a PV alias. The nameserver will transparently translate PV names to different
+#  actual PV names for "DENY, ALLOW" testing.
+#  The actual name may contain the special escape sequences \0 ... \9 which will be
+#  replaced by the n-th sub-expression matched. (\0 is the complete matched expression.)
+#
+# ALLOW:
+#  Used to declare PV names for which the nameserver should broadcast. Access security rules
+#  to be used for PVs matched by this pattern may be specified. (Optional. The 
+#  defaults are DEFAULT and 1.)
+#
+# Notes:
+#  1) Commands are not case sensitive.
+#  2) Pattern use GNU-style regular expressions. (See the documentation included
+#     with the regex library for details on regular expressions.)
+#  3) Any PV not included in an ALLOW command is not allowed access. If no PV list
+#     file is specified on the command line, a default rule ".* ALLOW" will be created.
+#  4) The patterns are matched in reverse order. I.e. you should always specify general
+#     rules before specific rules.
+#  5) See EPICS access security documentation for creating an access security
+#     file for the PV nameserver.
+#
+# Below:
+#  - make ALLOW rules override DENY rules
+#  - anything starting with ID is not allowed
+#  - don't answer to any request from host gw1
+#  - scummy0 ... scummy9 are translated to jbk_ai0 ... jbk_ai9 on real network;
+#    users are allowed access according to access security rules for group jims_group
+#  - requests for PVs starting with jbk_ will be allowed according to rules
+#    for access security group jims_group
+#  - PV food is allowed according to rules in group jims_group at access level 1
+#
+#
+#EVALUATION ORDER DENY, ALLOW
+#
+#ID.*              DENY
+#.*                DENY    gw1
+#scummy\([0-9]\)   ALIAS   jbk_ai\1  jims_group 0
+#food              ALLOW             jims_group
+#jbk_.*            ALLOW             jims_group 0
+
+EVALUATION ORDER ALLOW, DENY
+.*                ALLOW
+test.*            DENY
+.*                DENY FROM hydra,rhea,gateway431,gateway432,gateway433,gateway434,gateway435,gateway436,gateway438
+
+
