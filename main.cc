@@ -32,6 +32,9 @@
 #define TRUE 1
 #endif
 
+#define  pIocname(isFilname,pPath) (isFilename ? \
+     basename((char *)pPath): basename(dirname((char *)pPath)))
+
 //prototypes
 int parseDirectoryFile (const char *pFileName);
 int parseDirectoryFP (FILE *pf, const char *pFileName, int first);
@@ -595,11 +598,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 	int 	removed = 0;
 
 	// Set network info 
-	if( filenameIsIocname) {
-		strncpy(shortHN,  basename((char *)pFileName), PV_NAME_SZ-1);
-	} else {
-		strncpy(shortHN,  basename(dirname((char *)pFileName)), PV_NAME_SZ-1);
-	}
+    strncpy(shortHN, pIocname(filenameIsIocname,(char *)pFileName), PV_NAME_SZ-1);
 	memset((char *)&ipa,0,sizeof(ipa));
 	ipa.sin_family = AF_INET;
 	ipa.sin_port = 0u; // use the default CA server port
@@ -1173,11 +1172,7 @@ int remove_all_pvs(const char *hostName)
 	// use the copy of signal.list we stored in ./iocs when we got the disconnect signal
 
 	strncpy(tname, pH->get_pathToList(),PATH_NAME_SZ-1);
-	if( filenameIsIocname) {
-		sprintf(pathToList, "./iocs/%s/%s",basename(tname), SIG_LIST);
-	} else {
-		sprintf(pathToList, "./iocs/%s/%s",basename(dirname(tname)), SIG_LIST);
-	}
+	sprintf(pathToList, "./iocs/%s/%s",basename(dirname(tname)), SIG_LIST);
 	printf("remove_all file: %s\n", pathToList);
 	pf = fopen(pathToList, "r");
 
