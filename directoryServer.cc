@@ -37,18 +37,18 @@ static struct {
 	double broadcast;
 	double broadcast_denied;
 	double pending;
-	double host_error;
+	double ioc_error;
 	double hit;
-	double host_down;
+	double ioc_down;
 }stat;
 
 extern "C" void processChangeConnectionEvent( struct connection_handler_args args);
 
-pHost::~pHost()
+pIoc::~pIoc()
 {
 }
 
-pvEHost::~pvEHost()
+pvEIoc::~pvEIoc()
 {
 }
 
@@ -64,10 +64,10 @@ never::~never()
  *
  * Set sin_port, sin_family, and IP number
  *
- * \param hostname:port string
+ * \param iocname:port string
  *
 */
-void pHost::set_addr( chid chid)
+void pIoc::set_addr( chid chid)
 {
 		char hostNameStr[HOST_NAME_SZ];
 		char *cport;
@@ -112,15 +112,15 @@ directoryServer::directoryServer( unsigned pvCount) :
 	signal(SIGINT, sigusr1);
 #endif
 	this->stringResTbl.setTableSize(pvCount);
-	this->hostResTbl.setTableSize(MAX_IOCS);
+	this->iocResTbl.setTableSize(MAX_IOCS);
 	this->neverResTbl.setTableSize(pvCount);
 
 	stat.requests = 0;
 	stat.broadcast = 0;
 	stat.broadcast_denied = 0;
 	stat.pending = 0;
-	stat.host_error = 0;
-	stat.host_down = 0;
+	stat.ioc_error = 0;
+	stat.ioc_down = 0;
 	stat.hit = 0;
 
     pgateAs  = 0;
@@ -173,19 +173,19 @@ void directoryServer::sigusr1(int sig)
  */
 directoryServer::~directoryServer()
 {
-    tsSLList < pHost > tmpHostList;
+    tsSLList < pIoc > tmpIocList;
     tsSLList < pvE > tmpStringList;
     tsSLList < never > tmpNeverList;
 
 	ca_context_destroy();
 	// removeAll() puts entries on a tmpList.
 	// and then traverses list deleting each entry
-	this->hostResTbl.removeAll(tmpHostList);
-    while ( pHost * pH = tmpHostList.get() ) {
-    	while ( pvEHost * pveh = pH->pvEList.get() ) {
+	this->iocResTbl.removeAll(tmpIocList);
+    while ( pIoc * pI = tmpIocList.get() ) {
+    	while ( pvEIoc * pveh = pI->pvEList.get() ) {
 			delete pveh;
 		}
-        pH->~pHost ();
+        pI->~pIoc ();
     }
 	this->stringResTbl.removeAll(tmpStringList);
     while ( pvE * pS = tmpStringList.get() ) {
@@ -238,33 +238,33 @@ int directoryServer::installNeverName(const char *pName)
 	return(-1);
 }
 
-/*! \brief Add a host to the host hashtable
+/*! \brief Add a ioc to the ioc hashtable
  *
- * Create a host node. Add to host hash table. 0=success, -1=failure;
+ * Create a ioc node. Add to ioc hash table. 0=success, -1=failure;
  *
- * \param pHostName - IOC name
+ * \param pIocName - IOC name
  * \param pPath - full path to 'signal.list' file
  * \param ipaIn - network info structure
 */
-pHost * directoryServer::installHostName(const char *pHostName, const char *pPath)
+pIoc * directoryServer::installIocName(const char *pIocName, const char *pPath)
 {
-	pHost *pH;
+	pIoc *pI;
 
-	pH = new pHost( *this, pHostName, pPath);
-	if (pH) {
+	pI = new pIoc( *this, pIocName, pPath);
+	if (pI) {
 		int resLibStatus;
-		resLibStatus = this->hostResTbl.add(*pH);
+		resLibStatus = this->iocResTbl.add(*pI);
 		if (resLibStatus==0) {
-			if(verbose)fprintf(stdout, "added %s to host table\n", pHostName);
-			return(pH);
+			if(verbose)fprintf(stdout, "added %s to ioc table\n", pIocName);
+			return(pI);
 		}
 		else {
-			delete pH;
-			fprintf(stderr,"Unable to install %s. \n", pHostName);
+			delete pI;
+			fprintf(stderr,"Unable to install %s. \n", pIocName);
 		}
 	}
 	else {
-		fprintf(stderr,"can't create new host %s\n", pHostName);
+		fprintf(stderr,"can't create new ioc %s\n", pIocName);
 	}
 	return(0);
 }
@@ -274,34 +274,34 @@ pHost * directoryServer::installHostName(const char *pHostName, const char *pPat
  * Create a pv node. Add to pv hash table. 0=success, -1=failure;
  *
  * \param pName - pv name
- * \param pHostName - IOC serving this pv
+ * \param pIocName - IOC serving this pv
 */
-int directoryServer::installPVName( const char *pName, pHost *pH)
+int directoryServer::installPVName( const char *pName, pIoc *pI)
 {
 	pvE	*pve;
-	char *hostName = 0;
+	char *iocName = 0;
 
-	if (pH) hostName = pH->get_hostname();
-	pve = new pvE( *this, pName, pH);
+	if (pI) iocName = pI->get_iocname();
+	pve = new pvE( *this, pName, pI);
 	if (pve) {
 		int resLibStatus;
 		resLibStatus = this->stringResTbl.add(*pve);
 		if (resLibStatus==0) {
 			if(verbose)
-				fprintf(stdout, "Installed PV: %s  %s in hash table\n", pName, hostName);
-			pvEHost *pveH = 0;
-			if (pH) pveH = new pvEHost(pve);
-			if (pveH) pH->pvEList.add(*pveH);
-			else fprintf(stdout, "cant add %s node to %s host pv table\n", pName, hostName);
+				fprintf(stdout, "Installed PV: %s  %s in hash table\n", pName, iocName);
+			pvEIoc *pveH = 0;
+			if (pI) pveH = new pvEIoc(pve);
+			if (pveH) pI->pvEList.add(*pveH);
+			else fprintf(stdout, "cant add %s node to %s ioc pv table\n", pName, iocName);
 			return(0);
 		}
 		else {
 			delete pve;
 			char    checkStr[PV_NAME_SZ];
-            sprintf(checkStr,"%s%s",hostName, HEARTBEAT);
+            sprintf(checkStr,"%s%s",iocName, HEARTBEAT);
             if(strcmp(checkStr,pName)) {
 				fprintf(stdout, "Unable to enter PV %s on %s in hash table. Duplicate?\n",
-					 pName, hostName);
+					 pName, iocName);
 				return(-1);
 			}
 			else {
@@ -325,11 +325,11 @@ pvExistReturn directoryServer::pvExistTest(const casCtx& ctx, const char *pvName
  *
  *   - Search the pv hashtable 
  *   - If pv is found
- *      - Search the host hashtable
- *      - If host is found
- *         - Check host status
- *         - If host is up
- *            - Return host address
+ *      - Search the ioc hashtable
+ *      - If ioc is found
+ *         - Check ioc status
+ *         - If ioc is up
+ *            - Return ioc address
  *  - In all other cases
  *     - Return pvNotFound
  *
@@ -341,7 +341,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 {
 	char 		shortPV[PV_NAME_SZ];
 	pvE 		*pve;
-	pHost 		*pH;
+	pIoc 		*pI;
 	namenode	*pNN;
 	chid		chd;	
 	int 		i, len, status;
@@ -372,23 +372,23 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 
 	if(pve) {
 //fprintf(stdout,"Found pv in pv hash table. %s\n", shortPV); fflush(stdout);
-		// Found pv in pv hash table. Check to see if host is up.
+		// Found pv in pv hash table. Check to see if ioc is up.
 		if(verbose)
 			fprintf(stdout,"found %s in PV TABLE\n", shortPV);
-		pH = pve->get_pHost();
-		if(!pH) {
+		pI = pve->get_pIoc();
+		if(!pI) {
 			if(verbose)
-				fprintf(stdout, "Host error\n");
-			stat.host_error++;
+				fprintf(stdout, "Ioc error\n");
+			stat.ioc_error++;
 			return pverDoesNotExistHere;
 		}
 		else {
 			if(verbose)
-				fprintf(stdout,"Host installed. status: %d\n",pH->get_status());
-			if(pH->get_status() == 1) {
+				fprintf(stdout,"Ioc installed. status: %d\n",pI->get_status());
+			if(pI->get_status() == 1) {
 				stat.hit++;
 /*
-				sockaddr_in tin = pH->getAddr();
+				sockaddr_in tin = pI->getAddr();
 				printf("f: %d p: %d a: %d\n",
 					tin.sin_family,
 					tin.sin_port,
@@ -396,13 +396,13 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			    printf("ADDR <%s>\n", inet_ntoa(tin.sin_addr));
 */
 
-//printf("ADDR <%s> %s  ", inet_ntoa(((sockaddr_in)pH->getAddr()).sin_addr),shortPV);
-//printf("ADDR <%d> \n", pH->getAddr().sin_port); fflush(stdout);
-				return pvExistReturn (caNetAddr(pH->getAddr()));
+//printf("ADDR <%s> %s  ", inet_ntoa(((sockaddr_in)pI->getAddr()).sin_addr),shortPV);
+//printf("ADDR <%d> \n", pI->getAddr().sin_port); fflush(stdout);
+				return pvExistReturn (caNetAddr(pI->getAddr()));
 	
 			}
 			else {
-				stat.host_down++;
+				stat.ioc_down++;
 				return pverDoesNotExistHere;
 			}
 		}
@@ -426,15 +426,15 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
         if (this->pgateAs && this->pgateAs->isDenyFromListUsed()) {
 //fprintf(stdout,"Deny from list is used for pv %s\n", shortPV); fflush(stdout);
 			char *ptr;
-			char host[HOST_NAME_SZ]="";
+			char ioc[HOST_NAME_SZ]="";
 
-			// Get the client host name
+			// Get the client ioc name
 			struct sockaddr_in inaddr=(struct sockaddr_in)addr;
-			ipAddrToA(&inaddr,host,HOST_NAME_SZ);
-			if ((ptr=strchr(host,HN_DELIM))) *ptr=0x0;
-			if ((ptr=strchr(host,HN_DELIM2))) *ptr=0x0;
+			ipAddrToA(&inaddr,ioc,HOST_NAME_SZ);
+			if ((ptr=strchr(ioc,HN_DELIM))) *ptr=0x0;
+			if ((ptr=strchr(ioc,HN_DELIM2))) *ptr=0x0;
 
-			if (this->pgateAs && !this->pgateAs->findEntry(shortPV,host)) {
+			if (this->pgateAs && !this->pgateAs->findEntry(shortPV,ioc)) {
 //fprintf(stdout,"no entry: Broadcast denied for pv %s\n", shortPV); fflush(stdout);
 				stat.broadcast_denied++;
 				return (pverDoesNotExistHere);
@@ -507,8 +507,8 @@ void directoryServer::show (unsigned level) const
 	this->neverResTbl.show(2);
 	fprintf(stdout, "\n");
 
-	fprintf(stdout, "Host Hash Table:\n");
-	this->hostResTbl.show(5);
+	fprintf(stdout, "Ioc Hash Table:\n");
+	this->iocResTbl.show(5);
 	fprintf(stdout, "\n");
 
 	// print information about ca server library internals
@@ -530,9 +530,9 @@ void directoryServer::show (unsigned level) const
 		fprintf(stdout,"\nHits: \t\t%10.0f (%9.2f/hour)\n", stat.hit, stat.hit/hours);
 		fprintf(stdout,"Broadcasts: \t%10.0f (%9.2f/hour)\n", stat.broadcast, stat.broadcast/hours);
 		fprintf(stdout,"Broadcasts_denied:  %10.0f (%9.2f/hour)\n", stat.broadcast_denied, stat.broadcast_denied/hours);
-		fprintf(stdout,"Host_error: \t%10.0f (%9.2f/hour)\n", stat.host_error, stat.host_error/hours);
+		fprintf(stdout,"Ioc: \t%10.0f (%9.2f/hour)\n", stat.ioc_error, stat.ioc_error/hours);
 		fprintf(stdout,"Pending: \t%10.0f (%9.2f/hour)\n", stat.pending, stat.pending/hours);
-		fprintf(stdout,"Host_down: \t%10.0f (%9.2f/hour)\n", stat.host_down, stat.host_down/hours);
+		fprintf(stdout,"Ioc_down: \t%10.0f (%9.2f/hour)\n", stat.ioc_down, stat.ioc_down/hours);
 		fprintf(stdout,"    in %f seconds (%3.2f hours) \n", first - last_time, hours);
 	}
 	else {
@@ -540,9 +540,9 @@ void directoryServer::show (unsigned level) const
 		fprintf(stdout,"\nHits: %f\n", stat.hit);
 		fprintf(stdout,"Broadcasts: %f\n", stat.broadcast);
 		fprintf(stdout,"Broadcasts_denied: %f\n", stat.broadcast_denied);
-		fprintf(stdout,"Host_error: %f\n", stat.host_error);
+		fprintf(stdout,"Ioc_error: %f\n", stat.ioc_error);
 		fprintf(stdout,"Pending: %f\n", stat.pending);
-		fprintf(stdout,"Host_down: %f\n", stat.host_down);
+		fprintf(stdout,"Ioc_down: %f\n", stat.ioc_down);
 		fprintf(stdout,"    since startup\n");
 	}
 	fprintf(stdout, "\n**********End diagnostics\n\n");
@@ -551,9 +551,9 @@ void directoryServer::show (unsigned level) const
 	stat.broadcast = 0;
 	stat.broadcast_denied = 0;
 	stat.pending = 0;
-	stat.host_error = 0;
+	stat.ioc_error = 0;
 	stat.hit = 0;
-	stat.host_down = 0;
+	stat.ioc_down = 0;
 	stat.requests = 0;
 	last_time = first;
 }
