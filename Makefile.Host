@@ -25,7 +25,6 @@ STATIC_BUILD=YES
 #CCC_NORMAL = $(CCC)
 
 #USR_CFLAGS += 
-PROD_LIBS	+= As
 PROD_LIBS	+= cas
 #PROD_LIBS	+= cas_js
 PROD_LIBS	+= ca
