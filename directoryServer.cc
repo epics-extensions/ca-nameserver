@@ -47,6 +47,10 @@ static struct {
 #ifdef BROADCAST_ACCESS
 	double broadcast_denied;
 #endif
+#define GWBROADCAST 1
+#ifdef GWBROADCAST
+	double broadcast_denied;
+#endif
 	double pending;
 	double host_error;
 	double hit;
@@ -83,6 +87,7 @@ void pHost::setAddr( chid chid)
 		char pvNameStr[PV_NAME_SZ];
 		char *cport;
 		int portNumber;
+		int mystatus;
 
         this->addr.sin_family = AF_INET;
 
@@ -91,14 +96,14 @@ void pHost::setAddr( chid chid)
         if(cport){
             portNumber = atoi(cport + 1);
             this->addr.sin_port = htons((aitUint16) portNumber);
-            printf("portNumber: %d\n", portNumber);
+            //printf("portNumber: %d\n", portNumber);
         } else {
             this->addr.sin_port = 0u;
-            printf("portNumber: 0u\n");
+            //printf("portNumber: 0u\n");
         }
 		if (cport) *cport = 0;
-        status = aToIPAddr (pvNameStr, this->addr.sin_port, &this->addr);
-        if (status) {
+        mystatus = aToIPAddr (pvNameStr, this->addr.sin_port, &this->addr);
+        if (mystatus) {
             fprintf (stderr, "Unknown host name: %s \n", pvNameStr);
 		}
 }
@@ -132,6 +137,9 @@ directoryServer::directoryServer( unsigned pvCount) :
 	stat.requests = 0;
 	stat.broadcast = 0;
 #ifdef BROADCAST_ACCESS
+	stat.broadcast_denied = 0;
+#endif
+#ifdef GWBROADCAST
 	stat.broadcast_denied = 0;
 #endif
 	stat.pending = 0;
@@ -389,7 +397,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 	pve = this->stringResTbl.lookup(id);
 
 	if(pve) {
-fprintf(stdout,"Found pv in pv hash table. %s\n", shortPV); fflush(stdout);
+//fprintf(stdout,"Found pv in pv hash table. %s\n", shortPV); fflush(stdout);
 		// Found pv in pv hash table. Check to see if host is up.
 		if(verbose)
 			fprintf(stdout,"found %s in PV TABLE\n", shortPV);
@@ -405,14 +413,14 @@ fprintf(stdout,"Found pv in pv hash table. %s\n", shortPV); fflush(stdout);
 				fprintf(stdout,"Host installed. status: %d\n",pH->get_status());
 			if(pH->get_status() == 1) {
 				stat.hit++;
-/* */
+/*
 				sockaddr_in tin = pH->getAddr();
 				printf("f: %d p: %d a: %d\n",
 					tin.sin_family,
 					tin.sin_port,
 					tin.sin_addr);
 			    printf("ADDR <%s>\n", inet_ntoa(tin.sin_addr));
-/* */
+*/
 
 				return pvExistReturn (caNetAddr(pH->getAddr()));
 	
@@ -433,7 +441,7 @@ fprintf(stdout,"Found pv in pv hash table. %s\n", shortPV); fflush(stdout);
 			if(!strcmp(pNN->get_name(), shortPV)){
 				stat.pending++;
 				if(verbose)fprintf(stdout,"Connection pending\n");
-fprintf(stdout,"Connection pending for %s\n", shortPV); fflush(stdout);
+//fprintf(stdout,"Connection pending for %s\n", shortPV); fflush(stdout);
 				return (pverDoesNotExistHere);
 			}
 			iter++;
@@ -445,7 +453,15 @@ fprintf(stdout,"Connection pending for %s\n", shortPV); fflush(stdout);
 			return (pverDoesNotExistHere);
 		}
 #endif
-fprintf(stdout,"ca_search_and_connect for pv %s\n", shortPV); fflush(stdout);
+//fprintf(stdout,"ca_search_and_connect for pv %s\n", shortPV); fflush(stdout);
+#ifdef GWBROADCAST
+		// Broadcast only for the gateway pvs.
+		if (strncmp(shortPV,"GW",2)) {
+			stat.broadcast_denied++;
+//fprintf(stdout,"Broadcast NOT allowed for %s\n", pPVName);
+			return (pverDoesNotExistHere);
+		}
+#endif
 		status = ca_search_and_connect(shortPV,&chd,processChangeConnectionEvent,0);
 		if (status != ECA_NORMAL) {
 			fprintf(stderr,"ca_search failed on channel name: [%s]\n",shortPV);
@@ -467,7 +483,7 @@ fprintf(stdout,"ca_search_and_connect for pv %s\n", shortPV); fflush(stdout);
 			return (pverDoesNotExistHere);
 		}
 	}
-fprintf(stdout,"jba error for pv %s\n", shortPV); fflush(stdout);
+//fprintf(stdout,"jba error for pv %s\n", shortPV); fflush(stdout);
 	return (pverDoesNotExistHere);
 }
 
@@ -531,6 +547,9 @@ void directoryServer::show (unsigned level) const
 #ifdef BROADCAST_ACCESS
 		fprintf(stdout,"Broadcasts_denied:  %10.0f (%9.2f/hour)\n", stat.broadcast_denied, stat.broadcast_denied/hours);
 #endif
+#ifdef GWBROADCAST
+		fprintf(stdout,"Broadcasts_denied:  %10.0f (%9.2f/hour)\n", stat.broadcast_denied, stat.broadcast_denied/hours);
+#endif
 		fprintf(stdout,"Host_error: \t%10.0f (%9.2f/hour)\n", stat.host_error, stat.host_error/hours);
 		fprintf(stdout,"Pending: \t%10.0f (%9.2f/hour)\n", stat.pending, stat.pending/hours);
 		fprintf(stdout,"Host_down: \t%10.0f (%9.2f/hour)\n", stat.host_down, stat.host_down/hours);
@@ -543,6 +562,9 @@ void directoryServer::show (unsigned level) const
 #ifdef BROADCAST_ACCESS
 		fprintf(stdout,"Broadcasts_denied: %f\n", stat.broadcast_denied);
 #endif
+#ifdef GWBROADCAST
+		fprintf(stdout,"Broadcasts_denied: %f\n", stat.broadcast_denied);
+#endif
 		fprintf(stdout,"Host_error: %f\n", stat.host_error);
 		fprintf(stdout,"Pending: %f\n", stat.pending);
 		fprintf(stdout,"Host_down: %f\n", stat.host_down);
@@ -553,6 +575,9 @@ void directoryServer::show (unsigned level) const
 
 	stat.broadcast = 0;
 #ifdef BROADCAST_ACCESS
+	stat.broadcast_denied = 0;
+#endif
+#ifdef GWBROADCAST
 	stat.broadcast_denied = 0;
 #endif
 	stat.pending = 0;
@@ -575,24 +600,24 @@ int directoryServer::broadcastAllowed (const casCtx& ctx)
     pClient=(casClient *)ctx.getClient();
 
 	// Make the hash name
-    pClient->clientHostName(hostname, sizeof(hostname));
+    //pClient->clientHostName(hostname, sizeof(hostname));
+    //getClientHostName(ctx, hostname, sizeof(hostname));
 	if ((ptr=strchr(hostname,HN_DELIM))) *ptr=0x0;
 	if ((ptr=strchr(hostname,HN_DELIM2))) *ptr=0x0;
 
-fprintf(stdout,"Broadcast requested from host %s \n", hostname);
+//fprintf(stdout,"Broadcast requested from host %s \n", hostname);
 	// See if broadcast is allowed for this host
 	if (this->bcA->broadcastAllowed(hostname))
 	{
-fprintf(stdout,"Broadcast from %s IS allowed\n", hostname);
+//fprintf(stdout,"Broadcast from %s IS allowed\n", hostname);
         if (verbose) fprintf(stdout,"Broadcast from %s IS allowed\n", hostname);
         //fflush(stdout);
 		return TRUE;
 	}
 
-fprintf(stdout,"Broadcast from %s NOT allowed\n", hostname);
+//fprintf(stdout,"Broadcast from %s NOT allowed\n", hostname);
        if (verbose) fprintf(stdout,"Broadcast from %s NOT allowed\n", hostname);
        //fflush(stdout);
 		return FALSE;
 }
 #endif
-
