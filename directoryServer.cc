@@ -17,10 +17,12 @@ static char *rcsid="$Header$";
 #include <time.h>
 #endif
 
+#if 0
 #ifdef BROADCAST_ACCESS
 #include <cadef.h>
 #if EPICS_REVISION > 13
 #include <osiSock.h>
+#endif
 #endif
 #endif
 
@@ -439,23 +441,13 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			}
 			iter++;
 		}
-#ifdef BROADCAST_ACCESS
-		// Broadcast for the requested pv.
-		if (!this->broadcastAllowed(ctx,caNetAddr)) {
-//fprintf(stdout,"Broadcast NOT allowed for %s\n", shortPV); fflush(stdout);
+		// Can we broadcast for the requested pv.
+		if (!this->broadcastAllowed(ctx,caNetAddr,shortPV)) {
 			stat.broadcast_denied++;
 			return (pverDoesNotExistHere);
 		}
-#endif
+
 //fprintf(stdout,"ca_search_and_connect for pv %s\n", shortPV); fflush(stdout);
-#ifdef GWBROADCAST
-		// Broadcast only for the gateway pvs.
-		if (strncmp(shortPV,"GW",2)) {
-			stat.broadcast_denied++;
-//fprintf(stdout,"Broadcast NOT allowed for %s\n", pPVName);
-			return (pverDoesNotExistHere);
-		}
-#endif
 		status = ca_search_and_connect(shortPV,&chd,processChangeConnectionEvent,0);
 		if (status != ECA_NORMAL) {
 			fprintf(stderr,"ca_search failed on channel name: [%s]\n",shortPV);
@@ -477,7 +469,6 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			return (pverDoesNotExistHere);
 		}
 	}
-//fprintf(stdout,"jba error for pv %s\n", shortPV); fflush(stdout);
 	return (pverDoesNotExistHere);
 }
 
@@ -582,9 +573,9 @@ void directoryServer::show (unsigned level) const
 	last_time = first;
 }
 
-#ifdef BROADCAST_ACCESS
 int directoryServer::broadcastAllowed (const casCtx& ctx, const caNetAddr& addr)
 {
+#ifdef BROADCAST_ACCESS
 	char *ptr;
     char hostName[HOST_NAME_SZ]="";
 
@@ -609,9 +600,18 @@ int directoryServer::broadcastAllowed (const casCtx& ctx, const caNetAddr& addr)
 		return TRUE;
 	}
 
-//fprintf(stdout,"Broadcast from %s NOT allowed\n", hostname);
+//fprintf(stdout,"Broadcast from %s NOT allowed for %s\n", hostname,pvname); fflush(stdout);
        if (verbose) fprintf(stdout,"Broadcast from %s NOT allowed\n", hostname);
        //fflush(stdout);
 		return FALSE;
-}
 #endif
+#ifdef GWBROADCAST
+		// Broadcast only for the gateway pvs.
+        if (strncmp(shortPV,"GW",2) && strncmp(shortPV,"Xorbit",6) && strncmp(shortPV,"evans",5)) {
+            fprintf(stdout,"Broadcast NOT allowed for %s\n", pPVName); fflush(stdout);
+            return FALSE;
+		else {
+            return TRUE;
+		}
+#endif
+}
