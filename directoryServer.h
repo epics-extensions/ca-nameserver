@@ -31,7 +31,7 @@
 #define HEARTBEAT ":heartbeat"
 // Next two can be defined to suit your site
 #define DEFAULT_HASH_SIZE 300000
-#define MAX_IOCS 120
+#define MAX_IOCS 300
 
 #define HOST_NAME_SZ 80
 #define PV_NAME_SZ 80
