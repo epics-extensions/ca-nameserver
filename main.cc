@@ -784,9 +784,9 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag, pHost *
 	fileNameCopy = strdup(pFileName); 
 	if (!fileNameCopy) return 0;
 	pIocname = iocname(filenameIsIocname, fileNameCopy);
-	strlcpy(shortHN, pIocname, HOST_NAME_SZ);
-//printf("===========parseDirectoryFP entered for %s\n",shortHN);
-//printf("===========pFileName =  %s\n",pFileName);
+    strncpy (shortHN,pIocname,HOST_NAME_SZ-1);
+    shortHN[HOST_NAME_SZ-1]='\0';
+
 	free(fileNameCopy);
 	requested_iocs++;
 
@@ -869,7 +869,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag, pHost *
 		}
 
 		int chid_status = ca_state(chd);
-		fprintf(stdout, "3. chid_status: %d \n", chid_status);fflush(stdout);
+		//fprintf(stdout, "3. chid_status: %d \n", chid_status);fflush(stdout);
 		if(chid_status != 3)
 			ca_clear_channel(chd);
     	stringId id(shortHN, stringId::refString);
@@ -919,10 +919,8 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 	pH = (pHost*)ca_puser(args.chid);
     hostname = pH->get_hostname();  // this is iocname
 
-//printf("====WDprocessChangeConnectionEvent enterec  pH->get_status is %d\n",pH->get_status());
 	if (args.op == CA_OP_CONN_DOWN) {
 		if(pH) pH->set_status(2);
-//printf("====CONN DOWN pH->get_status is %d\n",pH->get_status());
 		connected_iocs --;
 		fprintf(stdout, "WATCHDOG CONN DOWN for %s\n", hostname);
 		first = epicsTime::getCurrent();
@@ -938,7 +936,6 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 	}
 	else{
 
-//printf("====CONN UP  pH->get_status is %d\n",pH->get_status());
 		connected_iocs ++;
 		fprintf(stdout,"WATCHDOG CONN UP for <%s> on %s state: %d\n", 
 			ca_name(args.chid), hostname, ca_state(args.chid));
@@ -1045,63 +1042,56 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 
 
 	if (args.op == CA_OP_CONN_DOWN) {
-
-		fprintf(stdout,"CONN DOWN for %s\n", ca_name(args.chid)); fflush(stdout);
 		connected_iocs --;
 
 		pH = ( pHost * ) ca_puser( args.chid );
 		if(pH) {
 			pH->set_status(2);
-//printf("EEEEEEEEEEEEEEEEEE===CONN DOWN pH->get_status is %d\n",pH->get_status());
+		    fprintf(stdout,"CONN DOWN for %s\n", pH->get_hostname()); fflush(stdout);
 			// Remove all pvs now
 			// On reconnect this ioc may have a different port
             removed = remove_all_pvs(pH);
-//fprintf(stdout,"remove_all_pvs completed for %s\n", ca_host_name(args.chid)); fflush(stdout);
-pH= pCAS->hostResTbl.remove(*pH);
-//fprintf(stdout,"hostResTbl.remove completed \n"); fflush(stdout);
-if(pH) delete pH;
-//fprintf(stdout,"delete pH completed\n"); fflush(stdout);
+            pH= pCAS->hostResTbl.remove(*pH);
+            if(pH) delete pH;
 		}
 		else {
 			fprintf(stderr,"CONN DOWN ERROR: HOST %s NOT INSTALLED \n", ca_host_name(args.chid));
 			fflush(stderr);
 		}
-		ca_set_puser (args.chid, 0);
-//ca_clear_channel(args.chid);
-//fprintf(stdout,"ca_clear_channel completed\n"); fflush(stdout);
+	    ca_set_puser(args.chid,0);
+
+        // Add this pv to the list of pending pv connections
+	    namenode *pNN;
+		pNN = new namenode(ca_name(args.chid), args.chid, 1);
+        pNN->set_otime();
+        if(pNN == NULL) {
+            fprintf(stderr,"Failed to create namenode %s\n", ca_name(args.chid));
+        }
+		else {
+           	pCAS->addNN(pNN);
+		}
 	}
 	else{
 		// Got a response to UDP broadcast for a pv not already in the pv hash table. 
-/*
-		fprintf(stdout,"CONN UP for <%s> on <%s> state: %d\n", 
-			ca_name(args.chid), ca_host_name(args.chid), ca_state(args.chid));
-*/
 
-		// 1.___________________________________________
 		int isHeartbeat = 0;
 
 		stringId id(ca_host_name(args.chid), stringId::refString);
 		pH = pCAS->hostResTbl.lookup(id);
-		if(pH) {
-/*
-			fprintf(stdout,"alreadyInHostTable: %s \n",
-				ca_host_name(args.chid));fflush(stdout);
-*/
-		}
-		else {
+		if(!pH) {
 			pH = pCAS->installHostName(ca_host_name(args.chid),0);
 			if (!pH) { fprintf(stderr,"error installing host: %s\n",
 				ca_host_name(args.chid));
 				return;
 			}
 			isHeartbeat = 1;
+		    fprintf(stdout,"CONN UP for %s\n", pH->get_hostname()); fflush(stdout);
 		}
 
 
 		// 2.___________________________________________
 		// This is a reconnect or initial connection.
 		if(pH->get_status()==2 || pH->get_status()==0) {
-		 	// Always monitor the first requested pv on connect
 	 		connected_iocs ++;
 			pH->setAddr(args.chid);
 			ca_set_puser(args.chid,pH);
@@ -1145,9 +1135,6 @@ if(pH) delete pH;
 		// Don't want monitors on anything except heartbeats.
 		if( !isHeartbeat) {
 			int chid_status = ca_state(args.chid);
-/*
-			fprintf(stdout, "4. chid_status: %d name: %s\n", chid_status, pvNameStr);fflush(stdout);
-*/
 			if(chid_status != 3)
 				ca_clear_channel(args.chid);
 		}
@@ -1198,8 +1185,9 @@ int remove_all_pvs(pHost *pH)
 	const char    *pvNameStr;
 	char checkStr[PV_NAME_SZ];
 	int		ct=0;
-	pvEHost		*heartbeat=0;
+	pvEHost		*pvEHostHeartbeat=0;
 	char	*hostName;
+    int      removeAll=1;
 
 	if(!pH) {
 		fprintf(stderr, "NOT IN TABLE\n");fflush(stderr);
@@ -1208,33 +1196,39 @@ int remove_all_pvs(pHost *pH)
 	hostName = pH->get_hostname();
 	fprintf(stdout,"Deleting all pvs for %s\n", hostName); fflush(stdout);
 
+    // If ioc has a pvname list file
 	// Don't remove the heartbeat so we know when the ioc comes back up.
-    if (hostName) sprintf(checkStr,"%s%s",hostName, HEARTBEAT);
-    while ( pvEHost * pNode = pH->pvEList.get()) {
-		pvNameStr = pNode->get_pvE()->get_name();
-		if (!pH->get_pathToList() || strcmp(checkStr,pvNameStr)) {
+    if ( pH->get_pathToList() && strlen(pH->get_pathToList()) ) {
+        if (hostName) sprintf(checkStr,"%s%s",hostName, HEARTBEAT);
+        removeAll=0;
+    }
+
+    // get removes first item from list
+    while ( pvEHost *pveh = pH->pvEList.get()) {
+		pvNameStr = pveh->get_pvE()->get_name();
+//fprintf(stdout,"Removing %s \n", pvNameStr); fflush(stdout);
+		if ( removeAll || strcmp(checkStr,pvNameStr)) {
 
 			stringId id2(pvNameStr, stringId::refString);
 			pve = pCAS->stringResTbl.remove(id2);
 			if(pve) {
-				//pve->~pvE ();
 				delete pve;
 				ct--;
 			}
 			else {
 				fprintf(stderr,"failed to remove %s\n", pvNameStr);fflush(stderr);
 			}
-			delete pNode;
+			delete pveh;
 		}
 		else {
-//fprintf(stdout, "heartbeat found while removing pvs %s\n",checkStr); fflush(stdout); fflush(stdout);
-			heartbeat = pNode;
+//fprintf(stdout, "heartbeat found while removing pvs %s\n",checkStr); fflush(stdout);
+			pvEHostHeartbeat = pveh;
 		}
     }
-	if (heartbeat) {
-//fprintf(stdout, "adding heartbeat back into %s\n",hostName); fflush(stdout); fflush(stdout);
-		// Add heartbeat pv back into pvEList
-		pH->pvEList.add(*heartbeat);
+	if (pvEHostHeartbeat) {
+//fprintf(stdout, "adding heartbeat back into %s pvEList\n",hostName); fflush(stdout);
+		// Add heartbeat pvEHost back into pvEList
+		pH->pvEList.add(*pvEHostHeartbeat);
 	}
 	return ct;
 }
