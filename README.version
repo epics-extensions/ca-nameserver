@@ -1,4 +1,4 @@
-Version 1.2
+Version 1.2 HP_UX10
 Changes from previous version:
 Remove some logging prints
 Fix bug for no heartbeat in signal.list found by Janet Anderson
@@ -9,4 +9,24 @@ Changes from previous version:
 Another Janet bug fix for removing heartbeat from hash table
 Corrected PIOC #ifdefs
 
+
 Please see the nameserver.html for installation and use.
+
+April 19, 2002 recompiled for HPUX 11
+______________________________________________________________
+Version 1.3 for HP-UX11 For install at JLab on Jul 6,2004
+Added a few comments
+Added markers ("PROPOSED") for possible code changes
+to handle network failures which look like ioc crashes.
+Changes would be:
+	Copy signal.list files by exec'ing a script when
+	startup is done. Script would copy signal.list files
+	to ./iocs dir. Change would also cause signal.list files
+	to be copied when a reconnect occurs. 
+	This would allow remove_all_pvs to work because we
+	would have the signal.list file and not depend on
+	getting it and being unable to get it because of a network
+	failure.
+	We would keep the fast startup by exec'ing the script
+	after the load is done.
+
