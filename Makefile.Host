@@ -1,0 +1,36 @@
+# Makefile.Host
+TOP = ../../..
+include $(TOP)/config/CONFIG_APP
+#----------------------------------------
+#  ADD MACRO DEFINITIONS AFTER THIS LINE
+
+# turns warnings into errors
+#USR_CXXFLAGS = +p
+STATIC_BUILD=YES
+
+
+# turns on all warnings
+#CXXCMPLR = NORMAL
+#CCC_NORMAL = $(CCC)
+
+
+#USR_CFLAGS += 
+PROD_LIBS	+= cas
+PROD_LIBS	+= ca
+PROD_LIBS	+= Db
+PROD_LIBS	+= Com
+PROD_LIBS	+= gdd
+cas_DIR  = $(EPICS_BASE_LIB)
+ca_DIR  = $(EPICS_BASE_LIB)
+Db_DIR  = $(EPICS_BASE_LIB)
+Com_DIR = $(EPICS_BASE_LIB)
+
+SRCS += main.cc
+SRCS += dirfmgr.cc
+SRCS += directoryServer.cc
+
+PROD := caDirServ
+
+include $(TOP)/config/RULES.Host
+#----------------------------------------
+#  ADD RULES AFTER THIS LINE
