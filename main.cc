@@ -35,14 +35,14 @@
 int parseDirectoryFile (const char *pFileName);
 int parseDirectoryFP (FILE *pf, const char *pFileName, int first);
 void start_ca_monitor();
-void registerCA(void *pfdctx,int fd,int condition);
+extern "C" void registerCA(void *pfdctx,int fd,int condition);
 extern void remove_CA_mon(int fd);	//!< CA utility
 extern void add_CA_mon(int fd);		//!< CA utility
-void processChangeConnectionEvent( struct connection_handler_args args);
-void WDprocessChangeConnectionEvent( struct connection_handler_args args);
-void sig_chld(int);
-void kill_the_kid(int);
-void sig_dont_dump(int);
+extern "C" void processChangeConnectionEvent( struct connection_handler_args args);
+extern "C" void WDprocessChangeConnectionEvent( struct connection_handler_args args);
+extern "C" void sig_chld(int);
+extern "C" void kill_the_kid(int);
+extern "C" void sig_dont_dump(int);
 int start_daemon();
 void setup_logging(char *log_file);
 int remove_all_pvs(const char *hostname);
@@ -59,6 +59,7 @@ int requested_iocs;		//!< count of iocs which we would like to be connected
 int verbose = 0;		//!< verbose mode off = 0, on = 1
 FILE *never_ptr;
 int FileWait = 0;		//!< count of hosts writing signal.list files
+int filenameIsIocname = 0;  //!< Signal list filename is iocname (else basename dirname)
 
 
 /*! \brief Initialization and main loop
@@ -89,10 +90,10 @@ extern int main (int argc, char *argv[])
 	strcpy(log_file, "log.file");
 
 	// Parse command line args.
-	extern char *optarg;
+	//extern char *optarg;
 	//char *errstr;
 	int c;
-    while ((c = getopt(argc, argv, "d:h:f:l:c:sv")) != -1){
+    while ((c = getopt(argc, argv, "d:h:f:l:c:nsv")) != -1){
         switch (c) {
            case 'v':
                 verbose = 1;
@@ -117,6 +118,9 @@ extern int main (int argc, char *argv[])
                 break;
            case 'h':
                 hash_table_size = atoi(optarg);;
+                break;
+           case 'n':
+                filenameIsIocname = 1;
                 break;
            case '?':
 				fprintf (stderr, "usage: %s [-d<debug level> -f<PV directory file> -l<log file> -s -h<hash table size>] [-c cd to -v]\n", argv[0]);
@@ -369,7 +373,7 @@ extern int main (int argc, char *argv[])
 	}
 	pCAS->show(2u);
 	delete pCAS;
-	exit (0);
+	return (0);
 }
 
 /*! \brief logging code shamelessly stolen from gateway code!
@@ -451,7 +455,7 @@ int start_daemon()
 /*! \brief  Prevent core dumps which delay restart
  *
 */
-void sig_dont_dump(int sig)
+extern "C" void sig_dont_dump(int sig)
 {
 	switch(sig) {
 		case SIGBUS:
@@ -468,7 +472,7 @@ void sig_dont_dump(int sig)
 /*! \brief  Allow termination of parent process to terminate the child.
  *
 */
-void kill_the_kid(int )
+extern "C" void kill_the_kid(int )
 {
         kill(child_pid, SIGTERM);
 		exit(1);
@@ -545,7 +549,10 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 	int 	removed = 0;
 
 	// Set network info 
-	strncpy(shortHN,  basename(dirname((char *)pFileName)), PV_NAME_SZ-1);
+	strncpy(shortHN,  basename((char *)pFileName), PV_NAME_SZ-1);
+	if( strcmp(shortHN,SIG_LIST)==0 || !filenameIsIocname) {
+		strncpy(shortHN,  basename(dirname((char *)pFileName)), PV_NAME_SZ-1);
+	}
 	memset((char *)&ipa,0,sizeof(ipa));
 	ipa.sin_family = AF_INET;
 	ipa.sin_port = 0u; // use the default CA server port
@@ -615,8 +622,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 	// during startup. Also, in practice, this should rarely be called.
 	if(startup_flag && !have_a_heart) {
 		requested_iocs--;
-		fprintf(stderr, "NO HEARTBEAT in %s/%s\n", shortHN, SIG_LIST);
-
+		fprintf(stderr, "NO HEARTBEAT in %s\n", pFileName);
 		tsSLIterRm<namenode> iter(pCAS->nameList);
 		while((pNN=iter()))  {
 			if(!strcmp(pNN->get_name(), tStr )) {
@@ -659,7 +665,7 @@ void start_ca_monitor()
  *
  * These are events which will cause change to the IOC hash table.
 */
-void WDprocessChangeConnectionEvent(struct connection_handler_args args)
+extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args args)
 {
 
 	char shortHN[HOST_NAME_SZ];
@@ -820,7 +826,7 @@ void WDprocessChangeConnectionEvent(struct connection_handler_args args)
                     add heartbeat to pending list
 \endverbatim
 */
-void processChangeConnectionEvent(struct connection_handler_args args)
+extern "C" void processChangeConnectionEvent(struct connection_handler_args args)
 {
 	int status;
 	struct sockaddr_in ipa;
@@ -1033,7 +1039,7 @@ void processChangeConnectionEvent(struct connection_handler_args args)
 
 /*! \brief Utility for CA monitor
 */
-void registerCA(void * /* pfdctx */,int fd, int condition)
+extern "C" void registerCA(void * /* pfdctx */,int fd, int condition)
 {
     if (condition)
         add_CA_mon( fd);
@@ -1046,11 +1052,11 @@ void registerCA(void * /* pfdctx */,int fd, int condition)
  * When run as a daemon, death of a child shakes the parent out of pause status.
  * A new child will be started.
 */
-void sig_chld(int )
+extern "C" void sig_chld(int )
 {
 #ifdef SOLARIS
     while(waitpid(-1,NULL,WNOHANG)>0);
-#elseifdef linux
+#elif defined(linux)
     while(waitpid(-1,NULL,WNOHANG)>0);
 #else
     while(wait3(NULL,WNOHANG,NULL)>0);
@@ -1067,7 +1073,6 @@ void sig_chld(int )
  */
 int remove_all_pvs(const char *hostName)
 {
-	char tname[PATH_NAME_SZ];
 	char pathToList[PATH_NAME_SZ];
 	pHost *pH;
 	pvE *pve;
@@ -1085,8 +1090,7 @@ int remove_all_pvs(const char *hostName)
 
 	// use the copy of signal.list we stored in ./iocs when we got the disconnect signal
 
-	strncpy(tname, pH->get_pathToList(),PATH_NAME_SZ-1);
-	sprintf(pathToList, "./iocs/%s/%s",basename(dirname(tname)), SIG_LIST);
+	sprintf(pathToList, "./iocs/%s/%s",hostName, SIG_LIST);
 	printf("remove_all file: %s\n", pathToList);
 
 

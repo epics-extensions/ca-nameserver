@@ -21,7 +21,7 @@
 // *** SITE SPECIFIC MODIFICATIONS TO BE EDITED  ***
 // If ca_host_name(chid) returns iocname.jlab.acc.org:5064, set the
 // delimiter to '.'. If the return is iocname:5064, set it to ':'.
-#define HN_DELIM '.'
+#define HN_DELIM ':'
 // The name of the files containing lists of pvs on each ioc.
 #define SIG_LIST "signal.list"
 // The suffix of a pv which exists on every ioc in the form 'iocname<suffix>'

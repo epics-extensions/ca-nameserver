@@ -30,7 +30,7 @@ static struct {
 	double host_down;
 }stat;
 
-void processChangeConnectionEvent( struct connection_handler_args args);
+extern "C" void processChangeConnectionEvent( struct connection_handler_args args);
 
 pHost::~pHost()
 {
@@ -93,7 +93,7 @@ directoryServer::directoryServer( unsigned pvCount) :
  * SIGUSR1 writes summary info to the logfile.SIGUSR2 starts a new logfile.
  * SIGTERM and SIGINT set the "outta_here" flag.
 */
-void directoryServer::sigusr1(int sig)
+extern "C" void directoryServer::sigusr1(int sig)
 {
 	struct      timeval first;
 	struct      timezone tzp;
@@ -365,7 +365,6 @@ pvExistReturn directoryServer::pvExistTest (const casCtx&, const char *pPVName)
 			stat.broadcast++;
 			return (pverDoesNotExistHere);
 		}
-		return (pverDoesNotExistHere);
 	}
 	return (pverDoesNotExistHere);
 }
