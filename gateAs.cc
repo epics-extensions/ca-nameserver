@@ -89,6 +89,7 @@ gateAsEntry::gateAsEntry(const char* pattern, const char* realname, const char* 
 	pat_buff.buffer=NULL;
 	pat_buff.translate=NULL;
 	pat_buff.fastmap=NULL;
+	pat_buff.allocated=0;
 
 	// Initialize registers
 	re_set_registers(&pat_buff,&regs,0,0,0);
