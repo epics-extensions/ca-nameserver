@@ -39,6 +39,7 @@ extern FILE *never_ptr;
 static struct {
 	double requests;
 	double broadcast;
+	double broadcast_denyed;
 	double pending;
 	double host_error;
 	double hit;
@@ -98,6 +99,7 @@ directoryServer::directoryServer( unsigned pvCount) :
     }
 	stat.requests = 0;
 	stat.broadcast = 0;
+	stat.broadcast_denyed = 0;
 	stat.pending = 0;
 	stat.host_error = 0;
 	stat.host_down = 0;
@@ -383,7 +385,10 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 				stat.broadcast++;
 				return (pverDoesNotExistHere);
 			}
-		} else return pverDoesNotExistHere;
+		} else {
+				stat.broadcast_denyed++;
+				return (pverDoesNotExistHere);
+			}
 	}
 	return (pverDoesNotExistHere);
 }
@@ -443,6 +448,7 @@ void directoryServer::show (unsigned level) const
 		fprintf(stdout,"\nRequests: \t%10.0f (%9.2f/hour)\n", stat.requests, stat.requests/hours);
 		fprintf(stdout,"\nHits: \t\t%10.0f (%9.2f/hour)\n", stat.hit, stat.hit/hours);
 		fprintf(stdout,"Broadcasts: \t%10.0f (%9.2f/hour)\n", stat.broadcast, stat.broadcast/hours);
+		fprintf(stdout,"Broadcasts_denyed:  %10.0f (%9.2f/hour)\n", stat.broadcast_denyed, stat.broadcast_denyed/hours);
 		fprintf(stdout,"Host_error: \t%10.0f (%9.2f/hour)\n", stat.host_error, stat.host_error/hours);
 		fprintf(stdout,"Pending: \t%10.0f (%9.2f/hour)\n", stat.pending, stat.pending/hours);
 		fprintf(stdout,"Host_down: \t%10.0f (%9.2f/hour)\n", stat.host_down, stat.host_down/hours);
@@ -452,6 +458,7 @@ void directoryServer::show (unsigned level) const
 		fprintf(stdout,"\nRequests: %f\n", stat.requests);
 		fprintf(stdout,"\nHits: %f\n", stat.hit);
 		fprintf(stdout,"Broadcasts: %f\n", stat.broadcast);
+		fprintf(stdout,"Broadcasts_denyed: %f\n", stat.broadcast_denyed);
 		fprintf(stdout,"Host_error: %f\n", stat.host_error);
 		fprintf(stdout,"Pending: %f\n", stat.pending);
 		fprintf(stdout,"Host_down: %f\n", stat.host_down);
@@ -461,6 +468,7 @@ void directoryServer::show (unsigned level) const
 	fflush(stdout);
 
 	stat.broadcast = 0;
+	stat.broadcast_denyed = 0;
 	stat.pending = 0;
 	stat.host_error = 0;
 	stat.hit = 0;
