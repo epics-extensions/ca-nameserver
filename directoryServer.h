@@ -16,15 +16,14 @@
 #include "resourceLib.h"
 #include "tsMinMax.h"
 #include "epicsTime.h"
-#ifdef BROADCAST_ACCESS
-#include "broadcastAccess.h"
-#endif
+#include "gateAs.h"
 
 // *** SITE SPECIFIC MODIFICATIONS TO BE EDITED  ***
 // If ca_host_name(chid) returns iocname.jlab.acc.org:5064, set the
 // delimiter to '.'. If the return is iocname:5064, set it to ':'.
 #define HN_DELIM '.'
 #define HN_DELIM2 ':'
+
 // The name of the files containing lists of pvs on each ioc.
 #define SIG_LIST "signal.list"
 // The suffix of a pv which exists on every ioc in the form 'iocname<suffix>'
@@ -32,10 +31,6 @@
 // Next two can be defined to suit your site
 #define DEFAULT_HASH_SIZE 300000
 #define MAX_IOCS 300
-
-#ifdef BROADCAST_ACCESS
-#define MAX_BROADCAST_HOSTS 20
-#endif
 
 #define HOST_NAME_SZ 80
 #define PV_NAME_SZ 80
@@ -191,9 +186,6 @@ public:
 	~directoryServer();
 	void show (unsigned level) const;
 
-#ifdef BROADCAST_ACCESS
-	int broadcastAllowed (const casCtx&, const caNetAddr&);
-#endif
 	int installPVName (const char *pvname, pHost *pHostName);
 	pHost* installHostName ( const char *pHostName, const char *pPath);
 	int installNeverName (const char *pvname);
@@ -206,11 +198,8 @@ public:
 	resTable<pHost,stringId> hostResTbl;	//!< hash of installed ioc's 
 	resTable<pvE,stringId> stringResTbl;	//!< hash of installed pv's
 	resTable<never,stringId> neverResTbl;	//!< hash of never connected pv's
-#ifdef BROADCAST_ACCESS
-	broadcastAccess* bcA;
-#endif
+    gateAs *pgateAs;
 private:
-
 	static void sigusr1(int); 
 	pvExistReturn pvExistTest (const casCtx&, const char *pPVName );
 	pvExistReturn pvExistTest (const casCtx&, const caNetAddr &, const char *pPVName );
