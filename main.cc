@@ -45,7 +45,7 @@ extern "C" void kill_the_kid(int);
 extern "C" void sig_dont_dump(int);
 int start_daemon();
 void setup_logging(char *log_file);
-int remove_all_pvs(const char *hostname);
+int remove_all_pvs(const char *hostname,const char *filename);
 int add_all_pvs(const char *hostName);
 
 // globals
@@ -72,6 +72,8 @@ extern int main (int argc, char *argv[])
 	char		fileName[128];					//!< default input filename
 	char		log_file[128];					//!< default log filename
 	char		home_dir[128];					//!< default home directory
+	char*		pvlist_file=0;					//!< default pvlist filename
+	char*		access_file=0;					//!< default access security filename
 	int			server_mode = 0;				//!< running as a daemon = 1
 	unsigned 	hash_table_size = 0;			//!< user requested size
 	aitBool		forever = aitTrue;
@@ -93,7 +95,7 @@ extern int main (int argc, char *argv[])
 	//extern char *optarg;
 	//char *errstr;
 	int c;
-    while ((c = getopt(argc, argv, "d:h:f:l:c:nsv")) != -1){
+    while ((c = getopt(argc, argv, "a:p:d:h:f:l:c:nsv")) != -1){
         switch (c) {
            case 'v':
                 verbose = 1;
@@ -112,6 +114,14 @@ extern int main (int argc, char *argv[])
 				fprintf(stdout,"logging to file: %s\n",log_file);
 				logging_to_file = 1;
                 break;
+           case 'p':
+                pvlist_file=optarg;
+                fprintf(stdout,"pvlist file: %s\n",pvlist_file);
+                break;
+           case 'a':
+                access_file=optarg;
+                fprintf(stdout,"access file: %s\n",access_file);
+                break;
            case 's':
                 server_mode = 1;
 				logging_to_file = 1;
@@ -123,7 +133,7 @@ extern int main (int argc, char *argv[])
                 filenameIsIocname = 1;
                 break;
            case '?':
-				fprintf (stderr, "usage: %s [-d<debug level> -f<PV directory file> -l<log file> -s -h<hash table size>] [-c cd to -v]\n", argv[0]);
+				fprintf (stderr, "usage: %s [-d<debug level> -f<PV directory file> -a<access security file> -p<pv list file> -l<log file> -s -h<hash table size>] [-c cd to -v]\n", argv[0]);
         		exit(-1);
         }
     }
@@ -162,6 +172,8 @@ extern int main (int argc, char *argv[])
     fprintf(fd,"\n");
     fprintf(fd,"# options:\n");
     fprintf(fd,"# home=<%s>\n",home_dir);
+    if (pvlist_file) fprintf(fd,"# pvlist file=<%s>\n",pvlist_file);
+    if (access_file) fprintf(fd,"# access file=<%s>\n",access_file);
     fprintf(fd,"# log file=<%s>\n",log_file);
     fprintf(fd,"# list file=<%s>\n",fileName);
     fprintf(fd,"# \n");
@@ -226,6 +238,9 @@ extern int main (int argc, char *argv[])
 		return (-1);
 	}
 
+	// Setup Access Security
+	pCAS->as= new gateAs(pvlist_file,access_file);
+
 	// Enable watchdog monitoring
 	start_ca_monitor();
 
@@ -257,11 +272,13 @@ extern int main (int argc, char *argv[])
 	// Main loop
 	if (forever) {
 		osiTime	delay(1000u,0u);
+		//osiTime delay(0u,10000000u);     // (sec, nsec) (10 ms)
 		osiTime	purgeTime(30u,0u);	// set interval between purge checks to 30 seconds 
 		osiTime	tooLong(300*1u,0u);	// remove from pending list after 5 minutes
 		while (!outta_here) {
 			fileDescriptorManager.process(delay);
 			ca_pend_event(1e-12);
+			//ca_poll();
 
 			// If an ioc is reconnecting,
 			// see if the ioc finished writing the signal.list file?
@@ -493,6 +510,8 @@ int parseDirectoryFile (const char *pFileName)
 	FILE	*pf, *pf2;
 	int	count = 0;
 	char input[200];
+struct 		timeval second;					//!< time loading ends
+struct 		timezone tzp;
 
 	// Open the user specified input file or the default input file(pvDirectory.txt).
 	pf = fopen(pFileName, "r");
@@ -508,6 +527,7 @@ int parseDirectoryFile (const char *pFileName)
 			if(input[0] == '#') {
 				continue;
 			}
+
 			pf2 = fopen(input, "r");
     		if (!pf2) { 
 				fprintf(stderr, "file access problems %s %s\n", 
@@ -548,10 +568,14 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 	int 	have_a_heart = 0;
 	int 	removed = 0;
 
+
 	// Set network info 
-	strncpy(shortHN,  basename((char *)pFileName), PV_NAME_SZ-1);
-	if( strcmp(shortHN,SIG_LIST)==0 || !filenameIsIocname) {
-		strncpy(shortHN,  basename(dirname((char *)pFileName)), PV_NAME_SZ-1);
+	if( filenameIsIocname) {
+		strncpy(shortHN,  basename((char *)pFileName), PV_NAME_SZ-1);
+	} else {
+		if( strcmp(shortHN,SIG_LIST)==0 || !filenameIsIocname) {
+			strncpy(shortHN,  basename(dirname((char *)pFileName)), PV_NAME_SZ-1);
+		}
 	}
 	memset((char *)&ipa,0,sizeof(ipa));
 	ipa.sin_family = AF_INET;
@@ -596,6 +620,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 		ca_flush_io();
 	}
 
+
 	while (TRUE) {
 		// Read the PV name entries until end of file.
 		if (fscanf(pf, " %127s ", pvNameStr) != 1) {
@@ -639,12 +664,13 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 		pHost *pH;
         pH= pCAS->hostResTbl.lookup(id);
         if(pH) {
-            removed = remove_all_pvs(shortHN);
+            removed = remove_all_pvs(shortHN,pFileName);
 			delete pH; 
         }
 		else { printf("lookup failed for %s\n", shortHN);}
 	}
 	return count - removed; 
+
 }
 
 /*! \brief Get ready to monitor channel access signals
@@ -775,7 +801,7 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 			}
 			// reconnection
 			else if (pH->get_status() == 2) { 
-				remove_all_pvs(shortHN);
+				remove_all_pvs(shortHN,0);
 				// Add this host to the list of those to check status of file
 				// to prevent reading signal.list until writing by ioc is complete.
 				pFW = new filewait(shortHN, 0);
@@ -890,7 +916,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 		// 2.___________________________________________
 		// This is a reconnect.
 		if(isHeartbeat && alreadyInHostTable)
-			remove_all_pvs(shortHN);
+			remove_all_pvs(shortHN,0);
 		// 3.___________________________________________
 		// Install this pv into the pv hash table
 		// ALWAYS install pv
@@ -1071,7 +1097,7 @@ extern "C" void sig_chld(int )
  *
  * \param hostName - name of the IOC
  */
-int remove_all_pvs(const char *hostName)
+int remove_all_pvs(const char *hostName, const char *filename)
 {
 	char pathToList[PATH_NAME_SZ];
 	pHost *pH;
@@ -1088,10 +1114,14 @@ int remove_all_pvs(const char *hostName)
 		return (-1);
 	}
 
-	// use the copy of signal.list we stored in ./iocs when we got the disconnect signal
+	if (filename==0) {
+		// use the copy of signal.list we stored in ./iocs when we got the disconnect signal
 
-	sprintf(pathToList, "./iocs/%s/%s",hostName, SIG_LIST);
-	printf("remove_all file: %s\n", pathToList);
+		sprintf(pathToList, "./iocs/%s/%s",hostName, SIG_LIST);
+	} else {
+		sprintf(pathToList, "%s",filename);
+	}
+		printf("remove_all file: %s\n", pathToList);
 
 
 	pf = fopen(pathToList, "r");
