@@ -47,7 +47,6 @@ static struct {
 #ifdef BROADCAST_ACCESS
 	double broadcast_denied;
 #endif
-#define GWBROADCAST 1
 #ifdef GWBROADCAST
 	double broadcast_denied;
 #endif
@@ -333,18 +332,6 @@ int directoryServer::installPVName( const char *pName, pHost *pH)
 	return(-1); //should never get here.
 }
 
-//
-// More advanced pvExistTest() isnt needed so we forward to
-// original version. This avoids sun pro warnings and speeds
-// up execution.
-//
-pvExistReturn directoryServer::pvExistTest
-    ( const casCtx & ctx, const caNetAddr &, const char * pPVName )
-{
-    return this->pvExistTest ( ctx, pPVName );
-}
-
-
 /*! \brief Handle client broadcasts
  *
  * The heart of the code is here. When the channel access library hears a
@@ -363,7 +350,8 @@ pvExistReturn directoryServer::pvExistTest
  * \param casCtx - not used
  * \param pPVName - name of the pv we're looking for
 */
-pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVName)
+pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, 
+    const caNetAddr &, const char *pPVName)
 {
 	char 		shortPV[PV_NAME_SZ];
 	pvE 		*pve;
@@ -448,7 +436,8 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 		}
 #ifdef BROADCAST_ACCESS
 		// Broadcast for the requested pv.
-		if (!this->broadcastAllowed(ctx)) {
+		if (!this->broadcastAllowed(ctx,caNetAddr)) {
+//fprintf(stdout,"Broadcast NOT allowed for %s\n", shortPV); fflush(stdout);
 			stat.broadcast_denied++;
 			return (pverDoesNotExistHere);
 		}
@@ -589,10 +578,10 @@ void directoryServer::show (unsigned level) const
 }
 
 #ifdef BROADCAST_ACCESS
-int directoryServer::broadcastAllowed (const casCtx& ctx)
+int directoryServer::broadcastAllowed (const casCtx& ctx, const caNetAddr& addr)
 {
-	char hostname[HOST_NAME_SZ];
 	char *ptr;
+    char hostName[HOST_NAME_SZ]="";
 
 	if (this->bcA==0) return TRUE;
 
@@ -600,8 +589,8 @@ int directoryServer::broadcastAllowed (const casCtx& ctx)
     pClient=(casClient *)ctx.getClient();
 
 	// Make the hash name
-    //pClient->clientHostName(hostname, sizeof(hostname));
-    //getClientHostName(ctx, hostname, sizeof(hostname));
+    struct sockaddr_in inaddr=(struct sockaddr_in)addr;
+    ipAddrToA(&inaddr,hostname,HOST_NAME_SZ);
 	if ((ptr=strchr(hostname,HN_DELIM))) *ptr=0x0;
 	if ((ptr=strchr(hostname,HN_DELIM2))) *ptr=0x0;
 

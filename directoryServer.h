@@ -160,6 +160,8 @@ public:
 		assert(this->stringId::resourceName()!=NULL);
 		strncpy(this->hostname, pHostNameIn, HOST_NAME_SZ-1);
 		if (pPath) strncpy(this->pathToList, pPath,PATH_NAME_SZ-1);
+		else this->pathToList[0]= '\0';
+
 		memset((char *)&this->addr,0,sizeof(this->addr));
 	}
 	virtual ~pHost(); 				// not inline to keep aCC happy
@@ -190,7 +192,7 @@ public:
 	void show (unsigned level) const;
 
 #ifdef BROADCAST_ACCESS
-	int broadcastAllowed (const casCtx&);
+	int broadcastAllowed (const casCtx&, const caNetAddr&);
 #endif
 	int installPVName (const char *pvname, pHost *pHostName);
 	pHost* installHostName ( const char *pHostName, const char *pPath);
@@ -210,7 +212,6 @@ public:
 private:
 
 	static void sigusr1(int); 
-	pvExistReturn pvExistTest (const casCtx&, const char *pPVName);
 	pvExistReturn pvExistTest (const casCtx&, const caNetAddr &, const char *pPVName );
 
 };
