@@ -338,7 +338,6 @@ extern int main (int argc, char *argv[])
 						if((sbuf.st_size == size) && (size != 0)) {
 							printf("SIZE EQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
 							add_all_pvs(pFW->get_hostname()); 
-							pCAS->fileList.remove(*pprevFW);
 							if (pprevFW) pCAS->fileList.remove(*pprevFW);
 							else pCAS->fileList.get();
 							delete pFW;
