@@ -1,0 +1,204 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.78 [en] (X11; U; HP-UX B.10.20 9000/785) [Netscape]">
+</head>
+<body>
+
+<h1>
+<b><font size=+1>Nameserver Version 1.2</font></b></h1>
+
+<p><br><b><font size=+1>Contents:</font></b>
+<p><b><font size=+1>&nbsp;&nbsp;&nbsp; Introduction</font></b>
+<br><b><font size=+1>&nbsp;&nbsp;&nbsp; User's Guide</font></b>
+<br><b><font size=+1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Software
+Installation</font></b>
+<br><b><font size=+1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; System
+Configuration</font></b>
+<br><b><font size=+1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Running
+the Nameserver</font></b>
+<br><b><font size=+1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Command
+Line Options</font></b>
+<br><b><font size=+1>&nbsp;&nbsp;&nbsp; Programmer's Guide</font></b>
+<br><b><font size=+1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Software
+Description</font></b>
+<p><b><font size=+1>Introduction</font></b>
+<br><font size=+1>The nameserver is used at Jefferson Lab to provide IP
+addresses of EPICS process variables (PVs) to client programs. Without
+a nameserver, client&nbsp; broadcast searches for PVs add to the load of
+every IOC in the system. With&nbsp; the nameserver&nbsp; in use, broadcasts
+are directed only to the nameserver, decreasing the load on the IOCs.&nbsp;
+Performance tests&nbsp; have shown that PV connection time is twice as
+fast when using the nameserver.</font>
+<p><font size=+1>Two modes of operation are available. In normal mode,
+information about the location of control system process variables (PVs)&nbsp;
+is loaded into internal hashtables at startup. In learn mode,&nbsp; a client
+request for information about an unknown PV triggers a broadcast by the
+nameserver.If the PV is found,&nbsp; location information is added to the&nbsp;
+hashtable. At Jefferson Lab, we use a combination of both modes, preloading
+data for&nbsp; for <b>96</b> IOCs and ~<b>280k</b> PVs&nbsp; and learning
+on demand about other less frequently requested PVs. Preloading results
+in more deterministic operation&nbsp; and a startup time of less than 5
+seconds. If the nameserver is running as a daemon process and a crash or
+restart is done, clients attempting to connect will&nbsp; see a 5 second
+delay&nbsp; but there will be no effect on clients which have already connected.</font>
+<p><font size=+1>The nameserver runs on a Unix&nbsp; workstation and is
+based on EPICS Portable Channel Access Server(PCAS) and the PCAS example
+program "directoryServer".</font>
+<p><b><font size=+1>User's Guide</font></b>
+<p><b><font size=+1>Software Installation</font></b>
+<br><font size=+1>The distributed gzipped tar file contains source code,
+makefiles, and sample configuration files. We use the EPICS utility "makeBaseApp"
+to provide an environment for compiling the source code using Makefile.Host.&nbsp;
+Scripts and documentation for "makeBaseApp" are&nbsp; available as part
+of the EPICS distribution with documentation in the file "$EPICS/base/src/makeBaseApp/iocAppBuildSRcontrol.html".
+At Jefferson Lab, EPICS configuration files are set up to use HP-UX 10.20
+and the HP aCC compiler but the code <b>has compiled on Linux or Solaris</b>
+without difficulty. <b>Before compiling, edit the file "directoryServer.h"
+and modify the section labelled "SITE SPECIFIC MODIFICATIONS", following
+the instructions in that file. </b>The executable,&nbsp; "caDirServ", should
+be copied to the directory from which it will run. Note that only one PCAS
+application may be run from any host.</font>
+<p><b><font size=+1>System Configuration</font></b>
+<br><font size=+1>At least two files must be created before the nameserver
+can be run. The first file, with the defaultname "pvDirectory.txt", must
+contain a list of full pathnames to one or more&nbsp; secondary files each
+called&nbsp; "signal.list".&nbsp;&nbsp; <b>The&nbsp; name, "signal.list",
+may be changed before the code is compiled. </b>At Jefferson Lab, our "pvDirectory.txt"
+file contains <b>96</b> lines of text:</font>
+<br><font size=+1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /cs/op/iocs/iocmc1/signal.list</font>
+<br><font size=+1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /cs/op/iocs/iocmc2/signal.list</font>
+<br><font size=+1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; etc.</font>
+<br><font size=+1>The next to last component of each pathname must be the
+name of the IOC. The "pvDirectory.txt" file is best&nbsp; located in the
+same directory as the executable code.</font>
+<br><font size=+1>Our "signal.list" files are automatically created by
+each IOCs on bootup by using the command "dbpr >> signal.list". These files
+may be created by any convenient method but must contain one PV name per
+line.</font>
+<p><font size=+1>Currently, there is one more requirement that must be
+met. Each "signal.list" file must contain one PV named "<i>iocname</i>:heartbeat"
+and this PV must exist on the actual IOC. <b>The&nbsp; suffix, ":heartbeat",
+may be changed before the code is compiled. </b>At Jefferson Lab, these
+PVs update a counter every second and are used on medm screens to indicate
+that the IOC is running. They may, in fact, be associated with any type
+of record.</font>
+<p><font size=+1>There is one exception to the set of requirements above.
+If the file "pvDirectory" is empty, the nameserver will run in total learn
+mode.&nbsp; This is not recommended for most efficient operation but may
+be useful for testing.</font>
+<p><b><font size=+1>Running the Nameserver</font></b>
+<br><font size=+1>Set the environmental variables "EPICS_CA_ADDR_LIST"
+and "EPICS_CA_AUTO_ADDR_LIST"&nbsp; so that IOC's can be "seen" by the
+nameserver. This can be done in the "start_nameserver" script.</font>
+<br><font size=+1>cd to the directory containing the nameserver executable
+and start "caDirServ".</font>
+<br><font size=+1>Verify that the nameserver has created two new files
+in this home directory: "nameserver.killer" and "nameserver.restart".</font>
+<p><font size=+1>To test the code, from another xterm, set "EPICS_CA_ADDR_LIST'
+to the IP address of the machine which is running the nameserver. Set "EPICS_CA_AUTO_ADDR_LIST"
+to "NO" to avoid&nbsp; problems with the client seeing the PVs twice, once
+directly and again via the nameserver.</font>
+<br><font size=+1>Verify that the nameserver is running by using "caget"
+to read the value of "<i>iocname</i>:heartbeat". If the "caget"is successful,
+attempt to get the values of other PVs on the same IOC and then on other
+IOCs.</font>
+<p><font size=+1>From the original xterm, kill the nameserver by executing
+the nameserver.killer script.</font>
+<br><font size=+1>Start the nameserver again using the -s argument to run
+as a daemon process. Note that a log file is created.</font>
+<br><font size=+1>Verify operation as above.</font>
+<br><font size=+1>Execute the nameserver.restart script and confirm that
+the original log file has been moved to a backup file and a new one has
+been created,&nbsp; and that new killer&nbsp; and restart files have been
+created.</font>
+<p><font size=+1>To exercise the reporting option, look at the contents
+of the nameserver.killer file and find the line after the comment "use
+the following to get a PV summary report in log:". This will be a "kill
+-USR1 <i>PID</i>" command. View the log file before and after executing
+the command. Similarly, the USR2 signal will start a new log file.</font>
+<p><b><font size=+1>Command Line Options</font></b>
+<br><font size=+1>The nameserver front end is modelled after the EPICS
+PCAS gateway code, and like the gateway, it may be run manually or as a
+daemon process.&nbsp; As a daemon process, the executable can be signaled
+to quit, to restart or to display run-time statistics. A log file may be
+created in manual mode and will be created if the server is run as a daemon.</font>
+<p><font size=+1>Command line arguments include:</font>
+<br><font size=+1>&nbsp;&nbsp;&nbsp; -f <i>filename</i> ......modify the
+name of the default input file "pvDirectory.txt"</font>
+<br><font size=+1>&nbsp;&nbsp;&nbsp; -d nnn.............turn on and set
+the level of PCAS debugging</font>
+<br><font size=+1>&nbsp;&nbsp;&nbsp; -l <i>logfilename</i> ..requests that
+logging&nbsp; be done and allows specification of logfile name</font>
+<br><font size=+1>&nbsp;&nbsp;&nbsp; -c <i>directory .......</i>change
+operational directory</font>
+<br><font size=+1>&nbsp;&nbsp;&nbsp; -s ....................use server
+mode</font>
+<br><font size=+1>&nbsp;&nbsp;&nbsp; -h <i>nnn</i> ..............set hashtable
+size (default = 300,000)</font>
+<br><font size=+1>&nbsp;&nbsp;&nbsp; -v ....................verbose mode</font>
+<p><font size=+1>Included with the distributed code is the file "start_nameserver".
+This script sets environmental variables and executes the nameserver process
+with standard arguments.</font>
+<p><b><font size=+1>Programmer's Guide</font></b>
+<p><b><font size=+1>Software Description</font></b>
+<p><font size=+1>caDirServ is based on the Portable Channel Access Server
+library and the example code "directoryServer", both of which are part
+of the EPICS base distribution files. For information about PCAS, please
+see the EPICS web site at Los Alamos,&nbsp; "http://mesa53.lanl.gov/lansce8/Epics/ca/ca.htm".</font>
+<p><font size=+1>The EPICS PCAS library provides many virtual functions
+which are normally replaced by the application developer, This application
+uses only the&nbsp; "pvExistTest" function. The usual "read" and "write"
+functions are not used and are&nbsp; effectively noops. The library provides
+all low level code for channel access. On receipt of a client broadcast,
+the library code calls the application "pvExistTest" function with the
+PV name as an argument. In the nameserver code, the PV hashtable is checked.
+If the PV is found, the IOC hashtable is checked to verify that the IOC
+is up. If true, the function returns "pvExistReturn" along with socket
+address information for the appropriate IOC. If the PV is not found in
+the PV hashtable, the nameserver will attempt to learn by broadcasting
+to find the PV and will return "pverDoesNotExistHere" for each request
+for this PV&nbsp; until the information is known. If the PV is known but
+the IOC is down,&nbsp; "pverDoesNotExistHere" will be returned. The rest
+of the code is bookkeeping.</font>
+<p><font size=+1>The nameserver maintains information on the status of
+each IOC by setting up a channel access monitor for each "heartbeat" PV
+and receiving channel access connection events.&nbsp; In this way, a PV
+can be added, deleted&nbsp; or moved from one IOC to another and the disconnection/connection
+sequence from the IOC will trigger updates to both the status of the IOCs
+and the contents of the PV hashtable. <b>When a PV is moved from one IOC
+to another, it is important to reboot the IOC which loses the PV before
+rebooting the IOC which gains the PV.</b></font>
+<p><font size=+1>The C++ code is quite simple with just over 1800 lines
+of source code. In addition to the PCAS library, the nameserver uses two
+EPICS hashtables to store information about PVs and IOCs and an EPICS singly
+linked list to keep track of PVs for which broadcasts have been done&nbsp;
+but haven't yet been found or timed out.&nbsp; <b>A third hash table stores
+the names of PVs which never connect.</b></font>
+<p><font size=+1>Unlike earlier versions of nameservers, no modifications
+are necessary to either EPICS/base or to client code. Clients simply modify
+EPICS_CA_ADDR_LIST to direct broadcasts to the nameserver. The program
+has been most effective when serving medm or burt, both of which do extensive
+broadcasting.</font>
+<p><font size=+1>The only problems seen so far are with client code which
+has been compiled with very old versions of EPICS which use channel access
+protocol version 4.4. This code has had to be recompiled to work with the
+nameserver.</font><font size=+1></font>
+<p><b><font size=+1>This release of the code includes minor modifications
+to logging. It also includes two #ifdef'd sections. The first, "JS_FILEWAIT",</font></b>
+<br><b><font size=+1>is no longer used at JLab. At one time, the nameserver
+would attempt to read incomplete signal.list files. Now our iocs write
+their files before ioc initialization and this delaying code is no longer
+needed here.&nbsp; The second #ifdef'd section, "PIOC", provides for serving
+PIOC variables which may be deleted without a loss of a heartbeat. The
+signal USR2 has been recoded as one way of handling these deletions.</font></b>
+<br>&nbsp;
+<br>&nbsp;
+<p><font size=+1>Please send bug reports, fixes or comments to:</font>
+<br><font size=+1>Joan Sage</font>
+<br><font size=+1>sage@jlab.org</font>
+<br>&nbsp;
+<br>&nbsp;
+</body>
+</html>
