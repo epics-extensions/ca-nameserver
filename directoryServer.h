@@ -212,6 +212,7 @@ public:
 private:
 
 	static void sigusr1(int); 
+	pvExistReturn pvExistTest (const casCtx&, const char *pPVName );
 	pvExistReturn pvExistTest (const casCtx&, const caNetAddr &, const char *pPVName );
 
 };

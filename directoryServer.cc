@@ -332,6 +332,11 @@ int directoryServer::installPVName( const char *pName, pHost *pH)
 	return(-1); //should never get here.
 }
 
+pvExistReturn directoryServer::pvExistTest(const casCtx& ctx, const char *pvName)
+{
+    return pverDoesNotExistHere;
+}
+
 /*! \brief Handle client broadcasts
  *
  * The heart of the code is here. When the channel access library hears a
