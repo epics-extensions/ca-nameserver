@@ -1,10 +1,9 @@
 TOP=../..
 include $(TOP)/configure/CONFIG
 
-USR_CXXFLAGS += -DGWBROADCAST
-#USR_CXXFLAGS += -DBROADCAST_ACCESS
 #USR_CXXFLAGS += -DPIOC
 USR_CXXFLAGS += -DJS_FILEWAIT
+USR_CXXFLAGS += -DUSE_DENYFROM
 #STATIC_BUILD=YES
 
 #ifeq ($(OS_CLASS),solaris)
@@ -23,23 +22,27 @@ USR_CXXFLAGS += -DJS_FILEWAIT
 #CXXCMPLR = NORMAL
 #CCC_NORMAL = $(CCC)
 
+PROD_LIBS	+= regex
 PROD_LIBS	+= cas
 #PROD_LIBS	+= cas_js
 PROD_LIBS	+= ca
-PROD_LIBS += dbStaticHost
+PROD_LIBS	+= asHost
 PROD_LIBS	+= Com
 PROD_LIBS	+= gdd
+regex_DIR  = $(INSTALL_LIB)
 #cas_js_DIR  = $(EPICS_BASE_LIB)
 cas_DIR  = $(EPICS_BASE_LIB)
 ca_DIR  = $(EPICS_BASE_LIB)
-Db_DIR  = $(EPICS_BASE_LIB)
+asHost_DIR  = $(EPICS_BASE_LIB)
 Com_DIR = $(EPICS_BASE_LIB)
+gdd_DIR = $(EPICS_BASE_LIB)
 
 SYS_PROD_LIBS_WIN32 := ws2_32 advapi32 user32
 
 SRCS +=main.cc
 SRCS += dirfmgr.cc
 SRCS += directoryServer.cc
+SRCS += gateAs.cc
 
 PROD_HOST = caDirServ
 
