@@ -6,6 +6,7 @@ include $(TOP)/config/CONFIG_APP
 
 # turns warnings into errors
 #USR_CXXFLAGS = +p
+USR_CXXFLAGS += -DPIOC
 STATIC_BUILD=YES
 
 
@@ -16,10 +17,12 @@ STATIC_BUILD=YES
 
 #USR_CFLAGS += 
 PROD_LIBS	+= cas
+#PROD_LIBS	+= cas_js
 PROD_LIBS	+= ca
 PROD_LIBS	+= Db
 PROD_LIBS	+= Com
 PROD_LIBS	+= gdd
+#cas_js_DIR  = $(EPICS_BASE_LIB)
 cas_DIR  = $(EPICS_BASE_LIB)
 ca_DIR  = $(EPICS_BASE_LIB)
 Db_DIR  = $(EPICS_BASE_LIB)

@@ -1,0 +1,7 @@
+Version 1.2
+Changes from previous version:
+Remove some logging prints
+Fix bug for no heartbeat in signal.list found by Janet Anderson
+Compile options for other labs
+
+Please see the nameserver.html for installation and use.

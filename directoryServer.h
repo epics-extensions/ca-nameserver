@@ -26,9 +26,10 @@
 #define SIG_LIST "signal.list"
 // The suffix of a pv which exists on every ioc in the form 'iocname<suffix>'
 #define HEARTBEAT ":heartbeat"
-
+// Next two can be defined to suit your site
 #define DEFAULT_HASH_SIZE 300000
-#define MAX_IOCS 100
+#define MAX_IOCS 120
+
 #define HOST_NAME_SZ 80
 #define PV_NAME_SZ 80
 #define PATH_NAME_SZ 120
@@ -84,6 +85,7 @@ private:
 	int		rebroadcast;
 };
 
+#ifdef JS_FILEWAIT
 /*! \brief  Node for linked list of pv's reconnecting
 */
 class filewait : public tsSLNode<filewait>
@@ -101,7 +103,7 @@ private:
 	char hostname[HOST_NAME_SZ];
 	int size;
 };
-
+#endif
 
 /*! \brief  pv hash table
 */
@@ -166,9 +168,10 @@ public:
 	struct sockaddr_in &ipaIn);
 	int installNeverName (const char *pvname);
 	void addNN(namenode *pNN) {this->nameList.add(*pNN); }
+#ifdef JS_FILEWAIT
 	void addFW(filewait *pF) {this->fileList.add(*pF); }
-
 	tsSLList<filewait> fileList;			//!< list of signal.list files pending
+#endif
 	tsSLList<namenode> nameList;			//!< list of pv's with pending connections
 	resTable<pHost,stringId> hostResTbl;	//!< hash of installed ioc's 
 	resTable<pvE,stringId> stringResTbl;	//!< hash of installed pv's
