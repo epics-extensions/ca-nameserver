@@ -168,9 +168,11 @@ public:
     const struct sockaddr_in getAddr()  const { return this->addr; }
     void set_port(int valIn) {this->addr.sin_port = valIn;}
 	void set_addr( chid chid);
-	tsSLList<pvEIoc> 	pvEList;		//! list of pv's on this ioc
+	void add( pvE *pve);            // add a pvE to the pvEList
+	pvE *get();                    // remove a pvE from the pvEList
 
 private:
+	tsSLList<pvEIoc> 	pvEList;		//! list of pv's on this ioc
 	int 				status;
 	directoryServer 	&cas;
     struct sockaddr_in  addr;

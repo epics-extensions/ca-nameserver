@@ -46,6 +46,9 @@ extern "C" void processChangeConnectionEvent( struct connection_handler_args arg
 
 pIoc::~pIoc()
 {
+	while ( pvEIoc * pvei = this->pvEList.get() ) {
+		delete pvei;
+	}
 }
 
 pvEIoc::~pvEIoc()
@@ -90,6 +93,41 @@ void pIoc::set_addr( chid chid)
         if (mystatus) {
             fprintf (stderr, "Unknown host name: %s \n", hostNameStr);
 		}
+}
+
+
+/*! \brief Remove a pvEIoc from the ioc's pvEList
+ *         delete  the pvEioc and return it's pve
+ *
+ * \param pve - a pvE object
+ *
+*/
+pvE *pIoc::get()
+{
+	pvE *pve = 0;
+	// get removes first item from list
+	pvEIoc * pvei = this->pvEList.get();
+	if (!pvei) return 0;
+	pve=pvei->get_pvE();
+	delete pvei;
+	return pve;
+}
+
+
+/*! \brief Constructor for the directory server
+ *
+/*! \brief Add a pve to the ioc's pvEList
+ *
+ * \param pve - a pvE object
+ *
+*/
+void pIoc::add( pvE *pve)
+{
+	pvEIoc *pveH = 0;
+
+	pveH = new pvEIoc(pve);
+	if (pveH) this->pvEList.add(*pveH);
+	else fprintf(stdout, "cant add %s node to %s ioc pv table\n", pve->get_name(), this->get_iocname());
 }
 
 
@@ -182,10 +220,7 @@ directoryServer::~directoryServer()
 	// and then traverses list deleting each entry
 	this->iocResTbl.removeAll(tmpIocList);
     while ( pIoc * pI = tmpIocList.get() ) {
-    	while ( pvEIoc * pveh = pI->pvEList.get() ) {
-			delete pveh;
-		}
-        pI->~pIoc ();
+		delete pI;
     }
 	this->stringResTbl.removeAll(tmpStringList);
     while ( pvE * pS = tmpStringList.get() ) {
@@ -289,10 +324,8 @@ int directoryServer::installPVName( const char *pName, pIoc *pI)
 		if (resLibStatus==0) {
 			if(verbose)
 				fprintf(stdout, "Installed PV: %s  %s in hash table\n", pName, iocName);
-			pvEIoc *pveH = 0;
-			if (pI) pveH = new pvEIoc(pve);
-			if (pveH) pI->pvEList.add(*pveH);
-			else fprintf(stdout, "cant add %s node to %s ioc pv table\n", pName, iocName);
+			/* add this pvE to the ioc's pvEList */
+			if (pI) pI->add(pve);
 			return(0);
 		}
 		else {
