@@ -18,6 +18,8 @@
 #include "osiTime.h"
 #include "bsdSocketResource.h"
 
+#include "gateAs.h"
+
 // *** SITE SPECIFIC MODIFICATIONS TO BE EDITED  ***
 // If ca_host_name(chid) returns iocname.jlab.acc.org:5064, set the
 // delimiter to '.'. If the return is iocname:5064, set it to ':'.
@@ -33,6 +35,8 @@
 #define HOST_NAME_SZ 80
 #define PV_NAME_SZ 80
 #define PATH_NAME_SZ 120
+#define GATE_MAX_PVNAME_LENGTH 64u
+#define GATE_MAX_HOSTNAME_LENGTH 64u
 
 extern FILE *never_ptr;
 
@@ -162,6 +166,7 @@ public:
 	void show (unsigned level) const;
 
 	pvExistReturn pvExistTest (const casCtx&, const char *pPVName);
+	int broadcastAllowed (const casCtx&, const char *pPVName);
 	int installPVName (const char *pvname, const char *pHostName);
 	int installHostName ( const char *pHostName, const char *pPath, 
 	struct sockaddr_in &ipaIn);
@@ -174,6 +179,7 @@ public:
 	resTable<pHost,stringId> hostResTbl;	//!< hash of installed ioc's 
 	resTable<pvE,stringId> stringResTbl;	//!< hash of installed pv's
 	resTable<never,stringId> neverResTbl;	//!< hash of never connected pv's
+	gateAs* as;
 private:
 
 	static void sigusr1(int); 
