@@ -177,6 +177,7 @@ directoryServer::~directoryServer()
     tsSLList < pvE > tmpStringList;
     tsSLList < never > tmpNeverList;
 
+	ca_context_destroy();
 	// removeAll() puts entries on a tmpList.
 	// and then traverses list deleting each entry
 	this->hostResTbl.removeAll(tmpHostList);
@@ -195,7 +196,6 @@ directoryServer::~directoryServer()
 		delete pN;
     }
     while ( namenode * pNN = this->nameList.get() ) {
-		ca_clear_channel(pNN->get_chid());
 		delete pNN;
 	}
 
