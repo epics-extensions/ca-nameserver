@@ -28,6 +28,9 @@ static char RcsId[] = "@(#)$Id$";
  * $Author$
  *
  * $Log$
+ * Revision 1.2  2003/07/10 01:00:19  jba
+ * Added include for time header file.
+ *
  * Revision 1.1  2003/07/03 18:41:35  jba
  * Added access security files.
  *
@@ -56,6 +59,7 @@ static char RcsId[] = "@(#)$Id$";
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <time.h>
 
 #include "gateAs.h"
 #if 0
