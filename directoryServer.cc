@@ -67,29 +67,28 @@ never::~never()
  * \param hostname:port string
  *
 */
-void pHost::setAddr( chid chid)
+void pHost::set_addr( chid chid)
 {
-		char pvNameStr[PV_NAME_SZ];
+		char hostNameStr[HOST_NAME_SZ];
 		char *cport;
-		int portNumber;
+		int portNumber=0;
 		int mystatus;
 
         this->addr.sin_family = AF_INET;
 
-		strncpy (pvNameStr, ca_host_name(chid),PV_NAME_SZ-1);
-        cport = strchr(pvNameStr,':');
+		ca_get_host_name(chid,hostNameStr,HOST_NAME_SZ);
+
+        cport = strchr(hostNameStr,':');
         if(cport){
             portNumber = atoi(cport + 1);
             this->addr.sin_port = htons((aitUint16) portNumber);
-            //printf("portNumber: %d\n", portNumber);
+			*cport = 0;
         } else {
             this->addr.sin_port = 0u;
-            //printf("portNumber: 0u\n");
         }
-		if (cport) *cport = 0;
-        mystatus = aToIPAddr (pvNameStr, this->addr.sin_port, &this->addr);
+        mystatus = aToIPAddr (hostNameStr, portNumber, &this->addr);
         if (mystatus) {
-            fprintf (stderr, "Unknown host name: %s \n", pvNameStr);
+            fprintf (stderr, "Unknown host name: %s \n", hostNameStr);
 		}
 }
 
@@ -397,6 +396,8 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			    printf("ADDR <%s>\n", inet_ntoa(tin.sin_addr));
 */
 
+//printf("ADDR <%s> %s  ", inet_ntoa(((sockaddr_in)pH->getAddr()).sin_addr),shortPV);
+//printf("ADDR <%d> \n", pH->getAddr().sin_port); fflush(stdout);
 				return pvExistReturn (caNetAddr(pH->getAddr()));
 	
 			}
@@ -415,14 +416,15 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			pNN=iter.pointer();
 			if(!strcmp(pNN->get_name(), shortPV)){
 				stat.pending++;
-				if(verbose)fprintf(stdout,"Connection pending\n");
+				if(verbose)fprintf(stdout,"Connection pending for %s\n", shortPV);
 //fprintf(stdout,"Connection pending for %s\n", shortPV); fflush(stdout);
 				return (pverDoesNotExistHere);
 			}
 			iter++;
 		}
 		// Can we broadcast for the requested pv.
-        if (this->pgateAs->isDenyFromListUsed()) {
+        if (this->pgateAs && this->pgateAs->isDenyFromListUsed()) {
+//fprintf(stdout,"Deny from list is used for pv %s\n", shortPV); fflush(stdout);
 			char *ptr;
 			char host[HOST_NAME_SZ]="";
 
@@ -433,13 +435,13 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			if ((ptr=strchr(host,HN_DELIM2))) *ptr=0x0;
 
 			if (this->pgateAs && !this->pgateAs->findEntry(shortPV,host)) {
-//fprintf(stdout,"Broadcast denied for pv %s\n", shortPV); fflush(stdout);
+//fprintf(stdout,"no entry: Broadcast denied for pv %s\n", shortPV); fflush(stdout);
 				stat.broadcast_denied++;
 				return (pverDoesNotExistHere);
 			}
 		} else {
 			if (this->pgateAs && !this->pgateAs->findEntry(shortPV)) {
-//fprintf(stdout,"Broadcast denied for pv %s\n", shortPV); fflush(stdout);
+//fprintf(stdout,"File exists: Broadcast denied for pv %s\n", shortPV); fflush(stdout);
 				stat.broadcast_denied++;
 				return (pverDoesNotExistHere);
 			}
