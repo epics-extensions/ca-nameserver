@@ -44,10 +44,15 @@
 #include <epicsVersion.h>
 
 #include "gateAs.h"
+
+#define GATE_MAX_PVLIST_LINE_LENGTH 1024u
+#include "reserve_fd.h"
+#if 0
 #include "gateResources.h"
 
 void gateAsCa(void);
 void gateAsCaClear(void);
+#endif
 
 const char* gateAs::default_group = "DEFAULT";
 const char* gateAs::default_pattern = "*";
@@ -143,9 +148,11 @@ void gateAsEntry::getRealName(const char* pv, char* rname, int len)
 			else break;
 		}
 		if(ir==len) rname[ir-1] = '\0';
+#if 0
 		gateDebug4(6,"gateAsEntry::getRealName() PV %s matches %s -> alias %s"
 		  " yields real name %s\n",
 		  pv, pattern, alias, rname);
+#endif
 	} else {
 		// Not an alias: PV name _is_ real name
 		strncpy(rname, pv, len);
@@ -285,7 +292,9 @@ gateAs::~gateAs(void)
 #ifdef USE_DENYFROM
 // Probably OK but not checked for reinitializing all of access
 // security including the pvlist.
+#if 0
 # error DENY FROM implementation should be checked here
+#endif
 	tsSLIter<gateAsHost> pi = host_list.firstIter();
 	gateAsList* l;
 	
@@ -293,7 +302,9 @@ gateAs::~gateAs(void)
 	while(pi.pointer())	{
 		pNode=pi.pointer();
 		deny_from_table.remove(pNode->host,l);
+#if 0
 		deleteAsList(*l);
+#endif
 	}
 #endif
 	
@@ -353,10 +364,13 @@ int gateAs::readPvList(const char* lfile)
 
 	if(lfile) {
 		errno=0;
+		fd=reserve_fd_fopen(lfile,"r");
+#if 0
 #ifdef RESERVE_FOPEN_FD
 		fd=global_resources->fopen(lfile,"r");
 #else
 		fd=fopen(lfile,"r");
+#endif
 #endif
 		if(fd == NULL) {
 			fprintf(stderr,"Failed to open PV list file %s\n",lfile);
@@ -483,10 +497,13 @@ int gateAs::readPvList(const char* lfile)
 		}
 	}
 	
+	reserve_fd_fclose(fd);
+#if 0
 #ifdef RESERVE_FOPEN_FD
 	global_resources->fclose(fd);
 #else
 	fclose(fd);
+#endif
 #endif
 	return 0;
 }
@@ -502,10 +519,13 @@ long gateAs::initialize(const char* afile)
 	
 	if(afile) {
 		errno=0;
+		rules_fd=reserve_fd_fopen(afile,"r");
+#if 0
 #ifdef RESERVE_FOPEN_FD
 		rules_fd=global_resources->fopen(afile,"r");
 #else
 		rules_fd=fopen(afile,"r");
+#endif
 #endif
 		if(rules_fd == NULL) {
 			// Open failed
@@ -525,10 +545,13 @@ long gateAs::initialize(const char* afile)
 			// Open succeeded
 			rc=asInitialize(::readFunc);
 			if(rc) fprintf(stderr,"Failed to read security file: %s\n",afile);
+			reserve_fd_fclose(rules_fd);
+#if 0
 #ifdef RESERVE_FOPEN_FD
 			global_resources->fclose(rules_fd);
 #else
 			fclose(rules_fd);
+#endif
 #endif
 		}
 	} else {
@@ -544,14 +567,18 @@ long gateAs::initialize(const char* afile)
 
 long gateAs::reInitialize(const char* afile, const char* lfile)
 {
+#if 0
 	// Stop in INP PV clients
 	gateAsCaClear();
+#endif
 
 	// Cleanup
 #ifdef USE_DENYFROM
 	// There should be no reason to use DENY FROM , but if it is
 	// desired, it needs to be implemented here.
+#if 0
 # error DENY FROM is not implemented here
+#endif
 #endif
 	clearAsList(deny_list);
 	clearAsList(allow_list);
@@ -571,8 +598,10 @@ long gateAs::reInitialize(const char* afile, const char* lfile)
 		  fprintf(stderr,"Failed to install access security file %s\n",afile);
 	}
 	
+#if 0
 	// Restart INP PV clients
 	gateAsCa();
+#endif
 
 	// Reread the pvlist file (Will use defaults if lfile is NULL)
 	readPvList(lfile);
