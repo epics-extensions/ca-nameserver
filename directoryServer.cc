@@ -297,6 +297,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 
 	// strip the requested PV to just the record name, omit the field.
 	strncpy(shortPV, pPVName,PV_NAME_SZ-1);
+
     len = strlen(shortPV);
     for(i=0; i<len; i++){
         if(shortPV[i] == '.'){
@@ -304,7 +305,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
             break;
         }
     }
-	
+
     len = strlen(shortPV);
 	if(len == 0){
 		return pverDoesNotExistHere;

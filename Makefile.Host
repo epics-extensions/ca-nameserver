@@ -12,6 +12,7 @@ endif
 
 # turns warnings into errors
 #USR_CXXFLAGS = +p
+USR_CXXFLAGS += -DPIOC
 STATIC_BUILD=YES
 
 # Use of GNU regex library (version 0.12) for patterns and aliasing
@@ -34,10 +35,12 @@ USR_INCLUDES += -I$(EPICS_BASE)/src/cas/io/bsdSocket
 #USR_CFLAGS += 
 PROD_LIBS	+= As
 PROD_LIBS	+= cas
+#PROD_LIBS	+= cas_js
 PROD_LIBS	+= ca
 PROD_LIBS	+= Db
 PROD_LIBS	+= Com
 PROD_LIBS	+= gdd
+#cas_js_DIR  = $(EPICS_BASE_LIB)
 cas_DIR  = $(EPICS_BASE_LIB)
 ca_DIR  = $(EPICS_BASE_LIB)
 Db_DIR  = $(EPICS_BASE_LIB)
