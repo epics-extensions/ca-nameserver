@@ -16,11 +16,13 @@ endif
 USR_CXXFLAGS += -DJS_FILEWAIT
 STATIC_BUILD=YES
 
+ifeq ($(OS_CLASS),solaris)
 # Use of GNU regex library (version 0.12) for patterns and aliasing
 GNU_REGEX_INC = /home/phoebus/EVANS/src/regexp/regex-0.12
 GNU_REGEX_LIB = /home/phoebus/EVANS/src/regexp/regex-0.12
 USR_INCLUDES += -I$(GNU_REGEX_INC)
 caDirServ_LDFLAGS += $(GNU_REGEX_LIB)/regex.o
+endif
 
 # turns on all warnings
 #CXXCMPLR = NORMAL
