@@ -12,7 +12,8 @@ endif
 
 # turns warnings into errors
 #USR_CXXFLAGS = +p
-USR_CXXFLAGS += -DPIOC
+#USR_CXXFLAGS += -DPIOC
+USR_CXXFLAGS += -DJS_FILEWAIT
 STATIC_BUILD=YES
 
 # Use of GNU regex library (version 0.12) for patterns and aliasing
