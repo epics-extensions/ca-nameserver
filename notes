@@ -1,5 +1,6 @@
 Fri Nov 22 09:20:21 CST 2002  -   caDirServ.20021001
-	Changed HN_DELIM from "." to ':'.
+	Now test hostname for both "." and ':'.
+	Moved ca_flush_io.
 	Made some portablility changes.
 	Added '-n' option: Input Signal list filename is iocname 
 	(else iocname is basename(dirname(name)) )
