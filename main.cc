@@ -868,6 +868,9 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag, pHost *
         if(pH) {
             removed = remove_all_pvs(pH);
 			pH= pCAS->hostResTbl.remove(*pH);
+			while ( pvEHost * pveh = pH->pvEList.get() ) {
+				delete pveh;
+			}
 			if(pH) delete pH; 
         }
 		else { printf("lookup failed for %s\n", shortHN);}
@@ -1040,28 +1043,32 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 		pH = ( pHost * ) ca_puser( args.chid );
 		if(pH) {
 			pH->set_status(2);
-		    fprintf(stdout,"CONN DOWN for %s\n", pH->get_hostname()); fflush(stdout);
+			fprintf(stdout,"CONN DOWN for %s\n", pH->get_hostname()); fflush(stdout);
 			// Remove all pvs now
 			// On reconnect this ioc may have a different port
-            removed = remove_all_pvs(pH);
-            pH= pCAS->hostResTbl.remove(*pH);
-            if(pH) delete pH;
+			removed = remove_all_pvs(pH);
+			pH= pCAS->hostResTbl.remove(*pH);
+			while ( pvEHost * pveh = pH->pvEList.get() ) {
+				delete pveh;
+			}
+			if(pH) delete pH;
 		}
 		else {
 			fprintf(stderr,"CONN DOWN ERROR: HOST %s NOT INSTALLED \n", hostname);
 			fflush(stderr);
 		}
-	    ca_set_puser(args.chid,0);
+//ca_clear_channel(args.chid);
+		ca_set_puser(args.chid,0);
 
-        // Add this pv to the list of pending pv connections
-	    namenode *pNN;
+		// Add this pv to the list of pending pv connections
+		namenode *pNN;
 		pNN = new namenode(ca_name(args.chid), args.chid, 1);
-        pNN->set_otime();
-        if(pNN == NULL) {
-            fprintf(stderr,"Failed to create namenode %s\n", ca_name(args.chid));
-        }
+		pNN->set_otime();
+		if(pNN == NULL) {
+			fprintf(stderr,"Failed to create namenode %s\n", ca_name(args.chid));
+		}
 		else {
-           	pCAS->addNN(pNN);
+			pCAS->addNN(pNN);
 		}
 	}
 	else{
