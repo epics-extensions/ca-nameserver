@@ -13,6 +13,7 @@
 #ifdef SOLARIS
 #include <sys/wait.h>
 #endif
+#include <stdio.h>
 
 #include <libgen.h>
 #include <strings.h>
@@ -522,8 +523,6 @@ int parseDirectoryFile (const char *pFileName)
 	FILE	*pf, *pf2;
 	int	count = 0;
 	char input[200];
-struct 		timeval second;					//!< time loading ends
-struct 		timezone tzp;
 
 	// Open the user specified input file or the default input file(pvDirectory.txt).
 	pf = fopen(pFileName, "r");
@@ -583,9 +582,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 	if( filenameIsIocname) {
 		strncpy(shortHN,  basename((char *)pFileName), PV_NAME_SZ-1);
 	} else {
-		if( strcmp(shortHN,SIG_LIST)==0 || !filenameIsIocname) {
-			strncpy(shortHN,  basename(dirname((char *)pFileName)), PV_NAME_SZ-1);
-		}
+		strncpy(shortHN,  basename(dirname((char *)pFileName)), PV_NAME_SZ-1);
 	}
 	memset((char *)&ipa,0,sizeof(ipa));
 	ipa.sin_family = AF_INET;
@@ -609,7 +606,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 		}
 		sprintf(tStr,"%s%s", shortHN,HEARTBEAT);
 		status = ca_search_and_connect(tStr,&chd, WDprocessChangeConnectionEvent, 0);
-		ca_flush_io();
+		//ca_flush_io();
 		if (status != ECA_NORMAL) {
 			fprintf(stderr,"1 ca_search failed on channel name: [%s]\n",tStr);
 			return(0);
@@ -628,7 +625,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
             	pCAS->addNN(pNN);
 			}
 		}
-		//ca_flush_io();
+		ca_flush_io();
 	}
 
 
@@ -699,7 +696,8 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 
         if(pH) {
             removed = remove_all_pvs(shortHN);
-			delete pH; 
+        	pH= pCAS->hostResTbl.remove(*pH);
+			if (pH) delete pH; 
         }
 		else { printf("lookup failed for %s\n", shortHN);}
 	}
@@ -1162,7 +1160,11 @@ int remove_all_pvs(const char *hostName)
 	// use the copy of signal.list we stored in ./iocs when we got the disconnect signal
 
 	strncpy(tname, pH->get_pathToList(),PATH_NAME_SZ-1);
-	sprintf(pathToList, "./iocs/%s/%s",basename(dirname(tname)), SIG_LIST);
+	if( filenameIsIocname) {
+		sprintf(pathToList, "./iocs/%s/%s",basename(tname), SIG_LIST);
+	} else {
+		sprintf(pathToList, "./iocs/%s/%s",basename(dirname(tname)), SIG_LIST);
+	}
 	printf("remove_all file: %s\n", pathToList);
 	pf = fopen(pathToList, "r");
 
