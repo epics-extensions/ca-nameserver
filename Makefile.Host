@@ -24,6 +24,8 @@ USR_INCLUDES += -I$(GNU_REGEX_INC)
 caDirServ_LDFLAGS += $(GNU_REGEX_LIB)/regex.o
 endif
 
+#CCC_NORMAL = $(CCC) +W684 +W302 +W829 +W818 +W392 +W469 +W749 +W667
+
 # turns on all warnings
 #CXXCMPLR = NORMAL
 #CCC_NORMAL = $(CCC)

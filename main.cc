@@ -19,7 +19,7 @@
 #include <strings.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-//
+
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
@@ -41,9 +41,9 @@ extern void remove_CA_mon(int fd);	//!< CA utility
 extern void add_CA_mon(int fd);		//!< CA utility
 extern "C" void processChangeConnectionEvent( struct connection_handler_args args);
 extern "C" void WDprocessChangeConnectionEvent( struct connection_handler_args args);
-extern "C" void sig_chld(int);
-extern "C" void kill_the_kid(int);
-extern "C" void sig_dont_dump(int);
+void sig_chld(int);
+void kill_the_kid(int);
+void sig_dont_dump(int);
 int start_daemon();
 void setup_logging(char *log_file);
 int remove_all_pvs(const char *hostname);
@@ -180,8 +180,12 @@ extern int main (int argc, char *argv[])
     fprintf(fd,"# \n");
     fprintf(fd,"# use the following the get a PV summary report in log:\n");
     fprintf(fd,"#    kill -USR1 %d\n",sid);
+#ifdef PIOC
     fprintf(fd,"# use the following to clear PIOC pvs from the nameserver:\n");
     fprintf(fd,"# \t (valid pvs will automatically reconnect)\n");
+#else
+    fprintf(fd,"# use the following to start a new logfile\n");
+#endif
     fprintf(fd,"#    kill -USR2 %d\n",sid);
 
     fprintf(fd,"# \n");
@@ -696,8 +700,8 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 
         if(pH) {
             removed = remove_all_pvs(shortHN);
-        	pH= pCAS->hostResTbl.remove(*pH);
-			if (pH) delete pH; 
+			pH= pCAS->hostResTbl.remove(*pH);
+			if(pH) delete pH; 
         }
 		else { printf("lookup failed for %s\n", shortHN);}
 	}
@@ -742,7 +746,7 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 	strncpy(shortHN, ca_host_name(args.chid),HOST_NAME_SZ-1);
 	len = strlen(shortHN);
 	for(i=0; i<len; i++){
-		if(shortHN[i] == HN_DELIM || shortHN[i] == HN_DELIM2 ){
+		if(shortHN[i] == HN_DELIM || shortHN[i] == HN_DELIM2){
 			shortHN[i] = 0x0;
 			break;
 		}
@@ -902,7 +906,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 	strncpy(shortHN, ca_host_name(args.chid),HOST_NAME_SZ-1);
 	int len = strlen(shortHN);
 	for(int i=0; i<len; i++){
-		if(shortHN[i] == HN_DELIM || shortHN[i] == HN_DELIM2 ){
+		if(shortHN[i] == HN_DELIM || shortHN[i] == HN_DELIM2){
 			shortHN[i] = 0x0;
 			break;
 		}
@@ -1032,7 +1036,6 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 				connected_iocs ++;
 			}
 		}
-#ifdef PIOC
 		// 6.___________________________________________
 		// Create or append to signal.list
 		// Since we ALWAYS install pv in host table, we must ALWAYS
@@ -1054,7 +1057,6 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 		fprintf(pf, "%s\n", ca_name(args.chid));
 		fclose(pf);
 		if(verbose) printf("Appended %s to SIG_LIST\n", ca_name(args.chid));
-#endif
 
 		// 7.___________________________________________
 		// Don't want monitors on anything except heartbeats.
@@ -1120,7 +1122,7 @@ extern "C" void sig_chld(int )
 {
 #ifdef SOLARIS
     while(waitpid(-1,NULL,WNOHANG)>0);
-#elif defined(linux)
+#elif defined linux
     while(waitpid(-1,NULL,WNOHANG)>0);
 #else
     while(wait3(NULL,WNOHANG,NULL)>0);
@@ -1168,7 +1170,6 @@ int remove_all_pvs(const char *hostName)
 	printf("remove_all file: %s\n", pathToList);
 	pf = fopen(pathToList, "r");
 
-#ifdef PIOC
 	if (!pf) {
 		// Try the pioc directory
 		strncpy(tname, pH->get_pathToList(),PATH_NAME_SZ-1);
@@ -1182,26 +1183,22 @@ int remove_all_pvs(const char *hostName)
 		}
 		pioc_removal = 1;
 	}
-#else
 	if (!pf) {
 		fprintf(stderr, "File access problems with file=\"%s\" because \"%s\"\n",
 			pathToList, strerror(errno));fflush(stderr);
 		return (-1);
 	}
-#endif
 	
 	int ct = 0;
 	while (TRUE) {
 		if (fscanf(pf, "%127s", pvNameStr) != 1) {
 			fprintf(stdout,"Deleted %d pvs from  %s \n", ct, hostName);fflush(stdout);
 			fclose (pf);
-#ifdef PIOC
 			if(pioc_removal) {
 				sprintf(cmd, "rm -r %s", pathToList);
 				system(cmd);
 				printf("cmd: %s\n", cmd);
 			}
-#endif
 			return ct; // end of file
 		}
 		// Don't remove the heartbeat so we know when the ioc comes back up.
