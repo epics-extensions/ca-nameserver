@@ -6,6 +6,9 @@
  * Initial release September 2001
 */
 
+static char *rcsid="$Header$";
+
+
 #include "directoryServer.h"
 #ifdef linux
 #include <time.h>
@@ -30,7 +33,7 @@ static struct {
 	double host_down;
 }stat;
 
-extern "C" void processChangeConnectionEvent( struct connection_handler_args args);
+void processChangeConnectionEvent( struct connection_handler_args args);
 
 pHost::~pHost()
 {
@@ -90,7 +93,9 @@ directoryServer::directoryServer( unsigned pvCount) :
 
 /*! \brief Signal handler
  *
- * SIGUSR1 writes summary info to the logfile.SIGUSR2 starts a new logfile.
+ * SIGUSR1 writes summary info to the logfile.
+ * SIGUSR2 starts a new logfile.
+ * At JLab, SIGUSR2 deletes all knowledge of pioc pvs.
  * SIGTERM and SIGINT set the "outta_here" flag.
 */
 void directoryServer::sigusr1(int sig)
