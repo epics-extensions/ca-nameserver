@@ -28,6 +28,7 @@ static char *rcsid="$Header$";
 #include <fdmgr.h>
 #include <fdManager.h>
 #include <envDefs.h>
+#include "tsSLList.h"
 #include "directoryServer.h"
 
 #ifndef TRUE
@@ -89,7 +90,7 @@ extern int main (int argc, char *argv[])
 	int			server_mode = 0;				//!< running as a daemon = 1
 	unsigned 	hash_table_size = 0;			//!< user requested size
 	aitBool		forever = aitTrue;
-	osiTime		begin(osiTime::getCurrent());
+ 	epicsTime	begin(epicsTime::getCurrent());
 	int			logging_to_file = 0;			//!< default is logging to terminal
 	//int			nPV = DEFAULT_HASH_SIZE;		//!< default pv hash table size
 	int			pv_count;						//!< count of pv's in startup lists
@@ -301,10 +302,12 @@ extern int main (int argc, char *argv[])
 
 	// Main loop
 	if (forever) {
-		osiTime	delay(1000u,0u);
-		//osiTime delay(0u,10000000u);     // (sec, nsec) (10 ms)
-		osiTime	purgeTime(30u,0u);	// set interval between purge checks to 30 seconds 
-		osiTime	tooLong(300*1u,0u);	// remove from pending list after 5 minutes
+		// if delay = 0.0 select will not block)
+		//double delay=.010; // (10 ms)
+		double delay=1000.0; // (1000 sec)
+ 		double purgeTime=30.0; // set interval between purge checks to 30 seconds 
+ 		double tooLong=300.0; // remove from pending list after 5 minutes
+
 		while (!outta_here) {
 			fileDescriptorManager.process(delay);
 			ca_pend_event(1e-12);
@@ -315,11 +318,13 @@ extern int main (int argc, char *argv[])
 #ifdef JS_FILEWAIT
 			if(FileWait){
 				struct stat sbuf;			
-				tsSLIterRm<filewait> iter2(pCAS->fileList);
+				tsSLIter<filewait> iter2=pCAS->fileList.firstIter();
 				filewait *pFW;
+				filewait *pprevFW=0;
 				int size = 0;
 				// For each ioc on the linked list of reconnecting iocs
-				while((pFW=iter2()))  {
+				while(iter2.valid()) {
+					pFW=iter2.pointer();
 					char file_to_wait_for[100];
 					sprintf(file_to_wait_for,"./iocs/%s",pFW->get_hostname());
 					// We're waiting to get the filesize the same twice in a row.
@@ -333,7 +338,9 @@ extern int main (int argc, char *argv[])
 						if((sbuf.st_size == size) && (size != 0)) {
 							printf("SIZE EQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
 							add_all_pvs(pFW->get_hostname()); 
-							iter2.remove();
+							pCAS->fileList.remove(*pprevFW);
+							if (pprevFW) pCAS->fileList.remove(*pprevFW);
+							else pCAS->fileList.get();
 							delete pFW;
 							FileWait--;
 							pFW->set_size(0);
@@ -346,6 +353,8 @@ extern int main (int argc, char *argv[])
 					else {
 						printf("Stat failed for %s because %s\n", file_to_wait_for, strerror(errno));
 					}
+					pprevFW = pFW;
+					++iter2;
 				}
 			}
 #endif
@@ -364,15 +373,17 @@ extern int main (int argc, char *argv[])
 #endif
 			}
 			// Is it time to purge the list of pending pv connections?
-			osiTime		now(osiTime::getCurrent());
+			epicsTime		now(epicsTime::getCurrent());
 			if((now - begin) > purgeTime) {
 				// reset the timer.
-				begin = osiTime::getCurrent();
+				begin = epicsTime::getCurrent();
 
 				// Look for purgable pv's.
-				tsSLIterRm<namenode> iter1(pCAS->nameList);
+				tsSLIter<namenode> iter1=pCAS->nameList.firstIter();
 				namenode *pNN;
-				while((pNN=iter1()))  {
+				namenode *pprevNN = 0;
+				while(iter1.valid()) {
+					pNN=iter1.pointer();
 					if((pNN->get_otime() + tooLong < now )) {
 						if(pNN->get_rebroadcast()) {
 
@@ -422,9 +433,12 @@ extern int main (int argc, char *argv[])
 								fprintf(stdout,"Channel clear error for %s\n", pNN->get_name());
 						}
 						fflush(stdout);
-						iter1.remove();
+						if (pprevNN) pCAS->nameList.remove(*pprevNN);
+						else pCAS->nameList.get();
 						delete pNN;
 					} // end purge
+					pprevNN = pNN;
+					iter1++;
 				} // end iter looking for things to purge
 			} // end if time to purge
 		} // end while(!outta_here)
@@ -595,6 +609,7 @@ int parseDirectoryFile (const char *pFileName)
 int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 {
 	namenode *pNN;
+	namenode *pprevNN = 0;
 	pHost 	*pHcheck;
 	char 	pvNameStr[PV_NAME_SZ];
 	char 	tStr[PV_NAME_SZ];
@@ -680,13 +695,17 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 	if(startup_flag && !have_a_heart) {
 		requested_iocs--;
 		fprintf(stderr, "NO HEARTBEAT in %s\n", pFileName);
-		tsSLIterRm<namenode> iter(pCAS->nameList);
-		while((pNN=iter()))  {
+		tsSLIter<namenode> iter=pCAS->nameList.firstIter();
+		while(iter.valid()) {
+			pNN=iter.pointer();
 			if(!strcmp(pNN->get_name(), tStr )) {
-				iter.remove();
+				if (pprevNN) pCAS->nameList.remove(*pprevNN);
+				else pCAS->nameList.get();
 				delete pNN;
 				break;
 			}
+			pprevNN = pNN;
+			iter++;
 		}
 
 		int chid_status = ca_state(chd);
@@ -736,8 +755,8 @@ void start_ca_monitor()
 {
     void *pfdctx;
 
-    SEVCHK(ca_task_initialize(),
-        "initializeCA: error in ca_task_initialize");
+    SEVCHK(ca_context_create(ca_enable_preemptive_callback),
+        "initializeCA: error in ca_context_create");
     pfdctx = (void *) fdmgr_init();
     SEVCHK(ca_add_fd_registration(registerCA,pfdctx),
         "initializeCA: error adding CA's fd to X");
@@ -754,6 +773,7 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 	char pvname[PV_NAME_SZ];
 	pHost *pH;
 	namenode *pNN;
+	namenode *pprevNN = 0;
 #ifdef JS_FILEWAIT
 	filewait *pFW;
 #endif
@@ -819,16 +839,20 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 
 		// Find  and remove this pv from the list of pvs
 		// with pending connections. Delete the node.
-		tsSLIterRm<namenode> iter(pCAS->nameList);
+		tsSLIter<namenode> iter=pCAS->nameList.firstIter();
 		int found = 0;
-		while((pNN=iter()))  {
+		while(iter.valid()) {
+			pNN=iter.pointer();
 			if(!strcmp(pNN->get_name(), pvname )) {
 				//printf("Removed %s from pending\n", pvname);
-				iter.remove();
+				if (pprevNN) pCAS->nameList.remove(*pprevNN);
+				else pCAS->nameList.get();
 				delete pNN;
 				found = 1;
 				break;
 			}
+			pprevNN = pNN;
+			iter++;
 		}
 		if(!found){
 			fprintf(stdout, "Cannot remove from pending: <%s>\n", pvname);
@@ -1006,17 +1030,22 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 		// 4.___________________________________________
 		// Always remove this pv from the list of pending conections.
 		{
-			tsSLIterRm<namenode> iter(pCAS->nameList);
+			tsSLIter<namenode> iter=pCAS->nameList.firstIter();
 			namenode *pNN;
+			namenode *pprevNN = 0;
 			int found = 0;
-			while((pNN=iter()))  {
+			while(iter.valid()) {
+				pNN=iter.pointer();
 				if(!strcmp(pNN->get_name(), pvNameStr )) {
 					if(verbose)printf("Removed %s from pending\n", pvNameStr);
-					iter.remove();
+					if (pprevNN) pCAS->nameList.remove(*pprevNN);
+					else pCAS->nameList.get();
 					delete pNN;
 					found = 1;
 					break;
 				}
+			pprevNN = pNN;
+			iter++;
 			}
 			if(!found) fprintf(stderr, "Unable to purge %s\n", pvNameStr);
 		}
@@ -1101,15 +1130,17 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 		// Check pending list and broadcast only ONCE for heartbeat.
 		if( !isHeartbeat && !alreadyInHostTable) {
 			// Is the heartbeat for the ioc on which this pv resides already on the pending list?
-			tsSLIter<namenode> iter2(pCAS->nameList);
+			tsSLIter<namenode> iter2 = pCAS->nameList.firstIter();
 			namenode *pNN;
 			int found = 0;
-			while((pNN=iter2()))  {
+			while(iter2.valid()) {
+				pNN=iter2.pointer();
 				if(!strcmp(pNN->get_name(), checkStr )) {
 					if(verbose)printf("%s already on b'cast list\n", checkStr);
 					found = 1;
 					break;
 				}
+				iter2++;
 			}
 			if(!found) {
 				chid chd;

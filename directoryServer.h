@@ -15,9 +15,7 @@
 #include "casdef.h"
 #include "resourceLib.h"
 #include "tsMinMax.h"
-#include "osiTime.h"
-#include "bsdSocketResource.h"
-
+#include "epicsTime.h"
 #ifdef BROADCAST_ACCESS
 #include "broadcastAccess.h"
 #endif
@@ -81,15 +79,15 @@ public:
 		this->rebroadcast = rebroadcastIn;
 	}
 	const char *get_name() 	{ return name; }
-	void set_otime() 		{ this->otime = osiTime::getCurrent(); }
-	osiTime get_otime() 	{ return otime;}
+	void set_otime() 		{ this->otime = epicsTime::getCurrent(); }
+	epicsTime get_otime() 	{ return otime;}
 	chid get_chid() 		{ return chd;}
 	int get_rebroadcast() 	{ return rebroadcast; }
 	inline ~namenode() 		{}
 	void set_chid(chid chdIn) { chd = chdIn; }
 private:
 	char 	name[PV_NAME_SZ];
-	osiTime otime;
+	epicsTime otime;
 	chid 	chd;
 	int		rebroadcast;
 };
@@ -171,7 +169,6 @@ public:
 	~directoryServer();
 	void show (unsigned level) const;
 
-	pvExistReturn pvExistTest (const casCtx&, const char *pPVName);
 #ifdef BROADCAST_ACCESS
 	int broadcastAllowed (const casCtx&);
 #endif
@@ -194,6 +191,8 @@ public:
 private:
 
 	static void sigusr1(int); 
+	pvExistReturn pvExistTest (const casCtx&, const char *pPVName);
+	pvExistReturn pvExistTest (const casCtx&, const caNetAddr &, const char *pPVName );
 
 };
 

@@ -16,14 +16,19 @@ static char RcsId[] = "@(#)$Id$";
 broadcastAccess::broadcastAccess(const char* lfile,unsigned hostCount) :
 	allowFromList(false)
 {
-	this->hostTbl.init(hostCount);
+	this->hostTbl.setTableSize(hostCount);
 	if(readHostList(lfile))
 		fprintf(stderr,"Failed to install host broadcast access file %s\n",lfile);
 }
 
 broadcastAccess::~broadcastAccess(void)
 {
-  this->hostTbl.destroyAllEntries();
+  tsSLList < hostId > tmpIdList;
+
+  this->hostTbl.removeAll(tmpIdList);
+  while ( hostId * pId = tmpIdList.get() ) {
+    pId->~hostId ();
+  }
 }
 
 int broadcastAccess::readHostList(const char* lfile)

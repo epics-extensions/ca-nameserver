@@ -18,17 +18,15 @@ static char *rcsid="$Header$";
 #include <cadef.h>
 #if EPICS_REVISION > 13
 #include <osiSock.h>
-#else
-#include <bsdSocketResource.h>
-// server.h is private and not in base/include.  We are including it
-// so we can access casCtx, which is not normally possible (by
-// intent).  Note: The src files have to be available to do this.
-#include "server.h"
-inline casCoreClient * casCtx::getClient() const
-{
-    return this->pClient;
-}
 #endif
+#endif
+
+#ifndef FALSE
+#define FALSE 0
+#endif
+
+#ifndef TRUE
+#define TRUE 1
 #endif
 
 static directoryServer *self = 0;
@@ -75,7 +73,7 @@ never::~never()
  *
 */
 directoryServer::directoryServer( unsigned pvCount) : 
-	caServer( pvCount)
+	caServer()
 {
 	int resLibStatus;
 
@@ -88,24 +86,10 @@ directoryServer::directoryServer( unsigned pvCount) :
 #ifdef BROADCAST_ACCESS
 	bcA = 0;
 #endif
+    this->stringResTbl.setTableSize(pvCount);
+    this->hostResTbl.setTableSize(MAX_IOCS);
+    this->neverResTbl.setTableSize(pvCount);
 
-    resLibStatus = this->stringResTbl.init(pvCount);
-    if (resLibStatus) {
-        fprintf(stderr, "CAS: string resource id table init failed\n");
-		assert(resLibStatus==0);
-    }
-
-    resLibStatus = this->hostResTbl.init(MAX_IOCS);
-    if (resLibStatus) {
-		fprintf(stderr, "CAS: host resource id table init failed\n");
-        assert(resLibStatus==0);
-    }
-
-    resLibStatus = this->neverResTbl.init(pvCount);
-    if (resLibStatus) {
-		fprintf(stderr, "CAS: never resource id table init failed\n");
-        assert(resLibStatus==0);
-    }
 	stat.requests = 0;
 	stat.broadcast = 0;
 #ifdef BROADCAST_ACCESS
@@ -161,18 +145,27 @@ void directoryServer::sigusr1(int sig)
  */
 directoryServer::~directoryServer()
 {
-	// destroyAllEntries() calls the destroy method on each entry.
-	// destroy calls delete the entry
-	this->hostResTbl.destroyAllEntries();
-	this->stringResTbl.destroyAllEntries();
-	this->neverResTbl.destroyAllEntries();
+    tsSLList < pHost > tmpHostList;
+    tsSLList < pvE > tmpStringList;
+    tsSLList < never > tmpNeverList;
 
-	tsSLIterRm<namenode> iter(this->nameList);
-	namenode *pNN;
-	while((pNN=iter()))  {
-		iter.remove();
+	// removeAll() puts entries on a tmpList.
+	// and then traverses list deleting each entry
+	this->hostResTbl.removeAll(tmpHostList);
+    while ( pHost * pH = tmpHostList.get() ) {
+        pH->~pHost ();
+    }
+	this->stringResTbl.removeAll(tmpStringList);
+    while ( pvE * pS = tmpStringList.get() ) {
+        pS->~pvE ();
+    }
+	this->neverResTbl.removeAll(tmpNeverList);
+    while ( never * pN = tmpNeverList.get() ) {
+        pN->~never ();
+    }
+
+    while ( namenode * pNN = this->nameList.get() ) {
 		delete pNN;
-		break;
 	}
 
 	struct      timeval first;
@@ -281,6 +274,18 @@ int directoryServer::installPVName( const char *pName, const char *pHostName)
 	return(-1); //should never get here.
 }
 
+//
+// More advanced pvExistTest() isnt needed so we forward to
+// original version. This avoids sun pro warnings and speeds
+// up execution.
+//
+pvExistReturn directoryServer::pvExistTest
+    ( const casCtx & ctx, const caNetAddr &, const char * pPVName )
+{
+    return this->pvExistTest ( ctx, pPVName );
+}
+
+
 /*! \brief Handle client broadcasts
  *
  * The heart of the code is here. When the channel access library hears a
@@ -368,13 +373,15 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 		if(verbose)
 			fprintf(stdout, "%s NOT in PV TABLE\n", shortPV);
 		// See if there is already a connection pending
-		tsSLIter<namenode> iter(this->nameList);
-		while( (pNN=iter())) {
+	 	tsSLIter<namenode> iter = this->nameList.firstIter();
+		while( iter.valid()) {
+			pNN=iter.pointer();
 			if(!strcmp(pNN->get_name(), shortPV)){
 				stat.pending++;
 				if(verbose)fprintf(stdout,"Connection pending\n");
 				return (pverDoesNotExistHere);
 			}
+			iter++;
 		}
 #ifdef BROADCAST_ACCESS
 		// Broadcast for the requested pv.
@@ -450,11 +457,11 @@ void directoryServer::show (unsigned level) const
 	fprintf(stdout, "Connected IOCS: %d\n", connected_iocs);
 	fprintf(stdout, "Requested IOCS: %d\n", requested_iocs);
 /*
-	namenode	*pNN;
-	tsSLIter<namenode> iter(this->nameList);
+	tsSLIter<namenode> iter = this->nameList.firstIter ();
 	fprintf(stdout,"PV's pending connections:\n" );
-	while( (pNN=iter())) {
-			fprintf(stdout,"  %s\n", pNN->get_name());
+	while (iter.valid()) {
+		fprintf(stdout,"  %s\n", iter.pointer()->get_name());
+		++iter;
 	}
 */
 	if(last_time != 0) {
