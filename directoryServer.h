@@ -166,8 +166,8 @@ public:
 	char *get_hostname() 			{ return this->hostname;}
 	inline void destroy ();
     const struct sockaddr_in getAddr()  const { return this->addr; }
-    void setPort(int valIn) {this->addr.sin_port = valIn;}
-	void setAddr( chid chid);
+    void set_port(int valIn) {this->addr.sin_port = valIn;}
+	void set_addr( chid chid);
 	tsSLList<pvEHost> 	pvEList;		//! list of pv's on this host
 
 private:
