@@ -8,23 +8,12 @@
 
 static char *rcsid="$Header$";
 
-#if 0
-#include <strings.h>
-#endif
-
 #include "directoryServer.h"
 #ifdef linux
 #include <time.h>
 #endif
 
-#if 0
-#ifdef BROADCAST_ACCESS
-#include <cadef.h>
-#if EPICS_REVISION > 13
-#include <osiSock.h>
-#endif
-#endif
-#endif
+#include <casdef.h>
 
 #ifndef FALSE
 #define FALSE 0
@@ -46,12 +35,7 @@ extern FILE *never_ptr;
 static struct {
 	double requests;
 	double broadcast;
-#ifdef BROADCAST_ACCESS
 	double broadcast_denied;
-#endif
-#ifdef GWBROADCAST
-	double broadcast_denied;
-#endif
 	double pending;
 	double host_error;
 	double hit;
@@ -128,25 +112,19 @@ directoryServer::directoryServer( unsigned pvCount) :
 	signal(SIGTERM, sigusr1);
 	signal(SIGINT, sigusr1);
 #endif
-#ifdef BROADCAST_ACCESS
-	bcA = 0;
-#endif
 	this->stringResTbl.setTableSize(pvCount);
 	this->hostResTbl.setTableSize(MAX_IOCS);
 	this->neverResTbl.setTableSize(pvCount);
 
 	stat.requests = 0;
 	stat.broadcast = 0;
-#ifdef BROADCAST_ACCESS
 	stat.broadcast_denied = 0;
-#endif
-#ifdef GWBROADCAST
-	stat.broadcast_denied = 0;
-#endif
 	stat.pending = 0;
 	stat.host_error = 0;
 	stat.host_down = 0;
 	stat.hit = 0;
+
+    pgateAs  = 0;
 }
 
 #ifndef _WIN32
@@ -221,6 +199,8 @@ directoryServer::~directoryServer()
 		ca_clear_channel(pNN->get_chid());
 		delete pNN;
 	}
+
+    if (pgateAs) delete pgateAs;
 
 	epicsTime	first;
 	local_tm_nano_sec   ansiDate;
@@ -358,7 +338,7 @@ pvExistReturn directoryServer::pvExistTest(const casCtx& ctx, const char *pvName
  * \param pPVName - name of the pv we're looking for
 */
 pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, 
-    const caNetAddr &, const char *pPVName)
+    const caNetAddr & addr, const char *pPVName)
 {
 	char 		shortPV[PV_NAME_SZ];
 	pvE 		*pve;
@@ -442,9 +422,27 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			iter++;
 		}
 		// Can we broadcast for the requested pv.
-		if (!this->broadcastAllowed(ctx,caNetAddr,shortPV)) {
-			stat.broadcast_denied++;
-			return (pverDoesNotExistHere);
+        if (this->pgateAs->isDenyFromListUsed()) {
+			char *ptr;
+			char host[HOST_NAME_SZ]="";
+
+			// Get the client host name
+			struct sockaddr_in inaddr=(struct sockaddr_in)addr;
+			ipAddrToA(&inaddr,host,HOST_NAME_SZ);
+			if ((ptr=strchr(host,HN_DELIM))) *ptr=0x0;
+			if ((ptr=strchr(host,HN_DELIM2))) *ptr=0x0;
+
+			if (this->pgateAs && !this->pgateAs->findEntry(shortPV,host)) {
+//fprintf(stdout,"Broadcast denied for pv %s\n", shortPV); fflush(stdout);
+				stat.broadcast_denied++;
+				return (pverDoesNotExistHere);
+			}
+		} else {
+			if (this->pgateAs && !this->pgateAs->findEntry(shortPV)) {
+//fprintf(stdout,"Broadcast denied for pv %s\n", shortPV); fflush(stdout);
+				stat.broadcast_denied++;
+				return (pverDoesNotExistHere);
+			}
 		}
 
 //fprintf(stdout,"ca_search_and_connect for pv %s\n", shortPV); fflush(stdout);
@@ -529,12 +527,7 @@ void directoryServer::show (unsigned level) const
 		fprintf(stdout,"\nRequests: \t%10.0f (%9.2f/hour)\n", stat.requests, stat.requests/hours);
 		fprintf(stdout,"\nHits: \t\t%10.0f (%9.2f/hour)\n", stat.hit, stat.hit/hours);
 		fprintf(stdout,"Broadcasts: \t%10.0f (%9.2f/hour)\n", stat.broadcast, stat.broadcast/hours);
-#ifdef BROADCAST_ACCESS
 		fprintf(stdout,"Broadcasts_denied:  %10.0f (%9.2f/hour)\n", stat.broadcast_denied, stat.broadcast_denied/hours);
-#endif
-#ifdef GWBROADCAST
-		fprintf(stdout,"Broadcasts_denied:  %10.0f (%9.2f/hour)\n", stat.broadcast_denied, stat.broadcast_denied/hours);
-#endif
 		fprintf(stdout,"Host_error: \t%10.0f (%9.2f/hour)\n", stat.host_error, stat.host_error/hours);
 		fprintf(stdout,"Pending: \t%10.0f (%9.2f/hour)\n", stat.pending, stat.pending/hours);
 		fprintf(stdout,"Host_down: \t%10.0f (%9.2f/hour)\n", stat.host_down, stat.host_down/hours);
@@ -544,12 +537,7 @@ void directoryServer::show (unsigned level) const
 		fprintf(stdout,"\nRequests: %f\n", stat.requests);
 		fprintf(stdout,"\nHits: %f\n", stat.hit);
 		fprintf(stdout,"Broadcasts: %f\n", stat.broadcast);
-#ifdef BROADCAST_ACCESS
 		fprintf(stdout,"Broadcasts_denied: %f\n", stat.broadcast_denied);
-#endif
-#ifdef GWBROADCAST
-		fprintf(stdout,"Broadcasts_denied: %f\n", stat.broadcast_denied);
-#endif
 		fprintf(stdout,"Host_error: %f\n", stat.host_error);
 		fprintf(stdout,"Pending: %f\n", stat.pending);
 		fprintf(stdout,"Host_down: %f\n", stat.host_down);
@@ -559,12 +547,7 @@ void directoryServer::show (unsigned level) const
 	fflush(stdout);
 
 	stat.broadcast = 0;
-#ifdef BROADCAST_ACCESS
 	stat.broadcast_denied = 0;
-#endif
-#ifdef GWBROADCAST
-	stat.broadcast_denied = 0;
-#endif
 	stat.pending = 0;
 	stat.host_error = 0;
 	stat.hit = 0;
@@ -573,45 +556,3 @@ void directoryServer::show (unsigned level) const
 	last_time = first;
 }
 
-int directoryServer::broadcastAllowed (const casCtx& ctx, const caNetAddr& addr)
-{
-#ifdef BROADCAST_ACCESS
-	char *ptr;
-    char hostName[HOST_NAME_SZ]="";
-
-	if (this->bcA==0) return TRUE;
-
-    casClient *pClient;
-    pClient=(casClient *)ctx.getClient();
-
-	// Make the hash name
-    struct sockaddr_in inaddr=(struct sockaddr_in)addr;
-    ipAddrToA(&inaddr,hostname,HOST_NAME_SZ);
-	if ((ptr=strchr(hostname,HN_DELIM))) *ptr=0x0;
-	if ((ptr=strchr(hostname,HN_DELIM2))) *ptr=0x0;
-
-//fprintf(stdout,"Broadcast requested from host %s \n", hostname);
-	// See if broadcast is allowed for this host
-	if (this->bcA->broadcastAllowed(hostname))
-	{
-//fprintf(stdout,"Broadcast from %s IS allowed\n", hostname);
-        if (verbose) fprintf(stdout,"Broadcast from %s IS allowed\n", hostname);
-        //fflush(stdout);
-		return TRUE;
-	}
-
-//fprintf(stdout,"Broadcast from %s NOT allowed for %s\n", hostname,pvname); fflush(stdout);
-       if (verbose) fprintf(stdout,"Broadcast from %s NOT allowed\n", hostname);
-       //fflush(stdout);
-		return FALSE;
-#endif
-#ifdef GWBROADCAST
-		// Broadcast only for the gateway pvs.
-        if (strncmp(shortPV,"GW",2) && strncmp(shortPV,"Xorbit",6) && strncmp(shortPV,"evans",5)) {
-            fprintf(stdout,"Broadcast NOT allowed for %s\n", pPVName); fflush(stdout);
-            return FALSE;
-		else {
-            return TRUE;
-		}
-#endif
-}
