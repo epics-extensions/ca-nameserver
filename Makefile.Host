@@ -4,17 +4,35 @@ include $(TOP)/config/CONFIG_APP
 #----------------------------------------
 #  ADD MACRO DEFINITIONS AFTER THIS LINE
 
+ifeq ($(OS_CLASS),solaris)
+#CC  = purify -first-only -chain-length=30 $($(ANSI)_$(CMPLR))
+#CXX = purify -first-only -chain-length=30 $($(CPLUSPLUS)_$(CXXCMPLR))
+#HOST_OPT=NO
+endif
+
 # turns warnings into errors
 #USR_CXXFLAGS = +p
 STATIC_BUILD=YES
 
+# Use of GNU regex library (version 0.12) for patterns and aliasing
+GNU_REGEX_INC = /home/phoebus/EVANS/src/regexp/regex-0.12
+GNU_REGEX_LIB = /home/phoebus/EVANS/src/regexp/regex-0.12
+USR_INCLUDES += -I$(GNU_REGEX_INC)
+caDirServ_LDFLAGS += $(GNU_REGEX_LIB)/regex.o
 
 # turns on all warnings
 #CXXCMPLR = NORMAL
 #CCC_NORMAL = $(CCC)
 
+# The following is necessary to include server.h to get to casCtx
+#USR_CXXFLAGS += -DcaNetAddrSock
+USR_INCLUDES += -I$(EPICS_BASE)/src/cas/generic
+USR_INCLUDES += -I$(EPICS_BASE)/src/cas/generic/st
+USR_INCLUDES += -I$(EPICS_BASE)/src/cas/io/bsdSocket
+
 
 #USR_CFLAGS += 
+PROD_LIBS	+= As
 PROD_LIBS	+= cas
 PROD_LIBS	+= ca
 PROD_LIBS	+= Db
@@ -28,6 +46,7 @@ Com_DIR = $(EPICS_BASE_LIB)
 SRCS += main.cc
 SRCS += dirfmgr.cc
 SRCS += directoryServer.cc
+SRCS += gateAs.cc
 
 PROD := caDirServ
 
