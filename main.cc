@@ -307,7 +307,7 @@ extern int main (int argc, char *argv[])
 						// So at least we will have a delay in having to get here a second time.
 						size = pFW->get_size();
 						if((sbuf.st_size == size) && (size != 0)) {
-							printf("SIZE UNEQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
+							printf("SIZE EQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
 							add_all_pvs(pFW->get_hostname()); 
 							iter2.remove();
 							delete pFW;
@@ -489,7 +489,7 @@ int start_daemon()
 /*! \brief  Prevent core dumps which delay restart
  *
 */
-extern "C" void sig_dont_dump(int sig)
+void sig_dont_dump(int sig)
 {
 	switch(sig) {
 		case SIGBUS:
@@ -506,7 +506,7 @@ extern "C" void sig_dont_dump(int sig)
 /*! \brief  Allow termination of parent process to terminate the child.
  *
 */
-extern "C" void kill_the_kid(int )
+void kill_the_kid(int )
 {
         kill(child_pid, SIGTERM);
 		exit(1);
@@ -610,7 +610,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 		}
 		sprintf(tStr,"%s%s", shortHN,HEARTBEAT);
 		status = ca_search_and_connect(tStr,&chd, WDprocessChangeConnectionEvent, 0);
-		//ca_flush_io();
+		ca_flush_io();
 		if (status != ECA_NORMAL) {
 			fprintf(stderr,"1 ca_search failed on channel name: [%s]\n",tStr);
 			return(0);
@@ -629,7 +629,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
             	pCAS->addNN(pNN);
 			}
 		}
-		ca_flush_io();
+		//ca_flush_io();
 	}
 
 
@@ -840,7 +840,6 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 			// reconnection
 			else if (pH->get_status() == 2) { 
 				remove_all_pvs(shortHN);
-				add_all_pvs(shortHN); 
 #ifdef JS_FILEWAIT
 				// Add this host to the list of those to check status of file
 				// to prevent reading signal.list until writing by ioc is complete.
@@ -852,6 +851,8 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 					pCAS->addFW(pFW);
 				}
 				FileWait++;
+#else
+				add_all_pvs(shortHN); 
 #endif
 			} 
 		}
@@ -1118,7 +1119,7 @@ extern "C" void registerCA(void * /* pfdctx */,int fd, int condition)
  * When run as a daemon, death of a child shakes the parent out of pause status.
  * A new child will be started.
 */
-extern "C" void sig_chld(int )
+void sig_chld(int )
 {
 #ifdef SOLARIS
     while(waitpid(-1,NULL,WNOHANG)>0);
@@ -1146,10 +1147,8 @@ int remove_all_pvs(const char *hostName)
 	FILE	*pf;
 	char    pvNameStr[PV_NAME_SZ];
 	char    checkStr[PV_NAME_SZ];
-#ifdef PIOC
 	int		pioc_removal = 0;
 	char 	cmd[100];
-#endif
 
 	fprintf(stdout,"Deleting all pvs for %s\n", hostName); fflush(stdout);
 	stringId id(hostName, stringId::refString);
