@@ -456,6 +456,7 @@ extern int main (int argc, char *argv[])
 						size = pFW->get_size();
 						if((sbuf.st_size == size) && (size != 0)) {
 							//printf("SIZE EQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
+							remove_all_pvs(pFW->get_pIoc());
 							add_all_pvs(pFW->get_pIoc()); 
                             if(pprevFW) pCAS->fileList.remove(*pprevFW);
 							else pCAS->fileList.get();
@@ -868,9 +869,6 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag, pIoc *p
         if(pI) {
             removed = remove_all_pvs(pI);
 			pI= pCAS->iocResTbl.remove(*pI);
-			while ( pvEIoc * pveh = pI->pvEList.get() ) {
-				delete pveh;
-			}
 			if(pI) delete pI; 
         }
 		else { printf("lookup failed for %s\n", iocName);}
@@ -971,7 +969,6 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 			}
 			// reconnection
 			else if (pI->get_status() == 2) { 
-				remove_all_pvs(pI);
 #ifdef JS_FILEWAIT
 				// Add this ioc to the list of those to check status of file
 				// to prevent reading signal.list until writing by ioc is complete.
@@ -983,6 +980,7 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 					pCAS->addFW(pFW);
 				}
 #else
+				remove_all_pvs(pI);
 				add_all_pvs(pI); 
 #endif
 			} 
@@ -1045,9 +1043,6 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 			// On reconnect this ioc may have a different port
 			removed = remove_all_pvs(pI);
 			pI= pCAS->iocResTbl.remove(*pI);
-			while ( pvEIoc * pveh = pI->pvEList.get() ) {
-				delete pveh;
-			}
 			if(pI) delete pI;
 		}
 		else {
@@ -1170,7 +1165,7 @@ int remove_all_pvs(pIoc *pI)
 	const char    *pvNameStr;
 	char checkStr[PV_NAME_SZ];
 	int		ct=0;
-	pvEIoc		*pvEIocHeartbeat=0;
+	pvE		*pvEHeartbeat=0;
 	char	*iocName;
     int      removeAll=1;
 
@@ -1189,8 +1184,8 @@ int remove_all_pvs(pIoc *pI)
     }
 
     // get removes first item from list
-    while ( pvEIoc *pveh = pI->pvEList.get()) {
-		pvNameStr = pveh->get_pvE()->get_name();
+    while ( pve = pI->get()) {
+		pvNameStr = pve->get_name();
 //fprintf(stdout,"Removing %s \n", pvNameStr); fflush(stdout);
 		if ( removeAll || strcmp(checkStr,pvNameStr)) {
 
@@ -1203,17 +1198,16 @@ int remove_all_pvs(pIoc *pI)
 			else {
 				fprintf(stderr,"failed to remove %s\n", pvNameStr);fflush(stderr);
 			}
-			delete pveh;
 		}
 		else {
 //fprintf(stdout, "heartbeat found while removing pvs %s\n",checkStr); fflush(stdout);
-			pvEIocHeartbeat = pveh;
+			pvEHeartbeat = pve;
 		}
     }
-	if (pvEIocHeartbeat) {
+	if (pvEHeartbeat) {
 //fprintf(stdout, "adding heartbeat back into %s pvEList\n",iocName); fflush(stdout);
-		// Add heartbeat pvEIoc back into pvEList
-		pI->pvEList.add(*pvEIocHeartbeat);
+		// Add heartbeat pvE back into pvEList
+		pI->add(pvEHeartbeat);
 	}
 	return ct;
 }
