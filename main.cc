@@ -24,8 +24,8 @@ static char *rcsid="$Header$";
 
 #ifdef _WIN32
 #include <direct.h>
-# include <process.h>
-# define WIN32_MAXSTDIO 2048
+#include <process.h>
+#define WIN32_MAXSTDIO 2048
 #else
 #include <unistd.h>
 #include <sys/resource.h>
@@ -49,7 +49,8 @@ static char *rcsid="$Header$";
 #define TRUE 1
 #endif
 
-# define NS_RESERVE_FILE  "nameserver.reserve"
+#define NS_RESERVE_FILE  "nameserver.reserve"
+#define NS_PVLIST_FILE  "nameserver.pvlist"
 
 //prototypes
 int parseDirectoryFile (const char *pFileName);
@@ -106,9 +107,7 @@ extern int main (int argc, char *argv[])
 	char		defaultFileName[] = "pvDirectory.txt";
 	char		defaultLog_file[] = "log.file";
 	char		defaultHome_dir[] = "./";
-#ifdef BROADCAST_ACCESS
-	char*		broadcast_file=0;				//!< default broadcast filename
-#endif
+	char*		pvlist_file=0;				//!< default pvlist filename
 	int			server_mode = 0;				//!< running as a daemon = 1
 	unsigned 	hash_table_size = 0;			//!< user requested size
 	aitBool		forever = aitTrue;
@@ -183,18 +182,16 @@ extern int main (int argc, char *argv[])
 					}
 				}
                 break;
-#ifdef BROADCAST_ACCESS
-           case 'b':
+           case 'p':
 				if(++i>=argc) parm_error=1;
 				else {
 					if(argv[i][0]=='-') parm_error=2;
 					else {
-						broadcast_file=argv[i];
-                		fprintf(stdout,"broadcast file: %s\n",broadcast_file);
+						pvlist_file=argv[i];
+                		fprintf(stdout,"pvlist file: %s\n",pvlist_file);
 					}
 				}
 				break;
-#endif
            case 's':
                 server_mode = 1;
 				logging_to_file = 1;
@@ -224,9 +221,7 @@ extern int main (int argc, char *argv[])
         if (parm_error == 2) fprintf(stderr,"\nInvalid command line option %s %s\n ",
              argv[i-2], argv[i-1]);
         fprintf (stderr, "usage: %s [-d<debug level> -f<PV directory file> "
-#ifdef BROADCAST_ACCESS
-           "-b<broadcast_access file> "
-#endif
+           "-p<pvlist file> "
            "-l<log file> -s -h<hash table size>] [-c cd to -v]\n", argv[0]);
        	exit(-1);
     }
@@ -268,9 +263,7 @@ extern int main (int argc, char *argv[])
     fprintf(fd,"\n");
     fprintf(fd,"# options:\n");
     fprintf(fd,"# home=<%s>\n",home_dir);
-#ifdef BROADCAST_ACCESS
-    if (broadcast_file) fprintf(fd,"# broadcast file=<%s>\n",broadcast_file);
-#endif
+    if (pvlist_file) fprintf(fd,"# pvlist file=<%s>\n",pvlist_file);
     fprintf(fd,"# log file=<%s>\n",log_file);
     fprintf(fd,"# list file=<%s>\n",fileName);
     fprintf(fd,"# \n");
@@ -323,33 +316,33 @@ extern int main (int argc, char *argv[])
     // Increase process limits to max
 #ifdef WIN32
     // Set open file limit (512 by default, 2048 is max)
-# if DEBUG_OPENFILES
+#if DEBUG_OPENFILES
     int maxstdio=_getmaxstdio();
     printf("Permitted open files: %d\n",maxstdio);
     printf("\nSetting limits to %d...\n",WIN32_MAXSTDIO);
-# endif
+#endif
   // This will fail and not do anything if WIN32_MAXSTDIO > 2048
     int status=_setmaxstdio(WIN32_MAXSTDIO);
     if(!status) {
         printf("Failed to set STDIO limit\n");
     }
-# if DEBUG_OPENFILES
+#if DEBUG_OPENFILES
     maxstdio=_getmaxstdio();
     printf("Permitted open files (after): %d\n",maxstdio);
-# endif
+#endif
 #else  //#ifdef WIN32
     // Set process limits
     if(getrlimit(RLIMIT_NOFILE,&lim)<0) {
         fprintf(stderr,"Cannot retrieve the process FD limits\n");
     } else  {
-# if DEBUG_OPENFILES
+#if DEBUG_OPENFILES
         printf("RLIMIT_NOFILE (before): rlim_cur=%d rlim_rlim_max=%d "
           "OPEN_MAX=%d SC_OPEN_MAX=%d FOPEN_MAX=%d\n",
           lim.rlim_cur,lim.rlim_max,
           OPEN_MAX,_SC_OPEN_MAX,FOPEN_MAX);
         printf("  sysconf: _SC_OPEN_MAX %d _SC_STREAM_MAX %d\n",
           sysconf(_SC_OPEN_MAX), sysconf(_SC_STREAM_MAX));
-# endif
+#endif
         if(lim.rlim_cur<lim.rlim_max) {
             lim.rlim_cur=lim.rlim_max;
             if(setrlimit(RLIMIT_NOFILE,&lim)<0)
@@ -398,10 +391,8 @@ extern int main (int argc, char *argv[])
 		return (-1);
 	}
 
-#ifdef BROADCAST_ACCESS
-	// Setup host broadcast access
-	pCAS->bcA= new broadcastAccess(broadcast_file,MAX_BROADCAST_HOSTS);
-#endif
+	// Setup broadcast access security
+	if (pvlist_file) pCAS->pgateAs = new gateAs(pvlist_file);
 
 	// Enable watchdog monitoring
 	start_ca_monitor();
