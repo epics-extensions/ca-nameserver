@@ -7,11 +7,11 @@ include $(TOP)/config/CONFIG_EXTENSIONS
 #BROADCAST_ACCESS=YES
 BROADCAST_ACCESS=NO
 
-ifeq ($(OS_CLASS),solaris)
-CC  = purify -first-only -chain-length=40 $($(ANSI)_$(CMPLR))
-CXX = purify -first-only -chain-length=40 $($(CPLUSPLUS)_$(CXXCMPLR))
-HOST_OPT=NO
-endif
+#ifeq ($(OS_CLASS),solaris)
+#CC  = purify -first-only -chain-length=40 $($(ANSI)_$(CMPLR))
+#CXX = purify -first-only -chain-length=40 $($(CPLUSPLUS)_$(CXXCMPLR))
+#HOST_OPT=NO
+#endif
 
 # turns warnings into errors
 #USR_CXXFLAGS = +p
@@ -40,7 +40,9 @@ ca_DIR  = $(EPICS_BASE_LIB)
 Db_DIR  = $(EPICS_BASE_LIB)
 Com_DIR = $(EPICS_BASE_LIB)
 
-#SRCS += main.cc
+SYS_PROD_LIBS_WIN32 := ws2_32 advapi32 user32
+
+SRCS +=main.cc
 SRCS += dirfmgr.cc
 SRCS += directoryServer.cc
 
