@@ -30,7 +30,7 @@ static struct {
 	double host_down;
 }stat;
 
-void processChangeConnectionEvent( struct connection_handler_args args);
+extern "C" void processChangeConnectionEvent( struct connection_handler_args args);
 
 pHost::~pHost()
 {

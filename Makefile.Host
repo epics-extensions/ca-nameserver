@@ -6,9 +6,11 @@ include $(TOP)/config/CONFIG_APP
 
 # turns warnings into errors
 #USR_CXXFLAGS = +p
+
 USR_CXXFLAGS += -DPIOC
 STATIC_BUILD=YES
 
+CCC_NORMAL = $(CCC) +W684 +W302 +W829 +W818 +W392 +W469 +W749 +W667
 
 # turns on all warnings
 #CXXCMPLR = NORMAL
