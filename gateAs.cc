@@ -27,6 +27,7 @@
 #define DEBUG_AS 0
 #define DEBUG_ACCESS 0
 
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
