@@ -42,3 +42,11 @@ Fri Aug 20 16:31:23 CDT 2004
 		Remove usage of getopt.
 		Remove usage of gettimeofday (use epicsTime).
 
+Tue Oct  5 15:14:09 CDT 2004
+	Remove all pvs and remove PH after learned host disconnects.
+    Add monitored pv back into pending list.
+    Added functions to reserve a file descriptor to use for fopen so
+    maximum number of file descriptors will not be exceeded.
+    Commented out printfs. Added basename,dirname,iocname for WIN32.
+    Removed getopt code - not portable to WIN32. Other WIN32 code changes.
+
