@@ -8,6 +8,9 @@
 
 static char *rcsid="$Header$";
 
+#if 0
+#include <strings.h>
+#endif
 
 #include "directoryServer.h"
 #ifdef linux
@@ -31,7 +34,6 @@ static char *rcsid="$Header$";
 
 static directoryServer *self = 0;
 
-extern pid_t child_pid;
 extern int outta_here;
 extern int start_new_log;
 extern int connected_iocs;
@@ -43,7 +45,7 @@ static struct {
 	double requests;
 	double broadcast;
 #ifdef BROADCAST_ACCESS
-	double broadcast_denyed;
+	double broadcast_denied;
 #endif
 	double pending;
 	double host_error;
@@ -57,6 +59,10 @@ pHost::~pHost()
 {
 }
 
+pvEHost::~pvEHost()
+{
+}
+
 pvE::~pvE()
 {
 }
@@ -64,6 +70,39 @@ pvE::~pvE()
 never::~never()
 {
 }
+
+/*! \brief Set the address values of the ca server
+ *
+ * Set sin_port, sin_family, and IP number
+ *
+ * \param hostname:port string
+ *
+*/
+void pHost::setAddr( chid chid)
+{
+		char pvNameStr[PV_NAME_SZ];
+		char *cport;
+		int portNumber;
+
+        this->addr.sin_family = AF_INET;
+
+		strncpy (pvNameStr, ca_host_name(chid),PV_NAME_SZ-1);
+        cport = strchr(pvNameStr,':');
+        if(cport){
+            portNumber = atoi(cport + 1);
+            this->addr.sin_port = htons((aitUint16) portNumber);
+            printf("portNumber: %d\n", portNumber);
+        } else {
+            this->addr.sin_port = 0u;
+            printf("portNumber: 0u\n");
+        }
+		if (cport) *cport = 0;
+        status = aToIPAddr (pvNameStr, this->addr.sin_port, &this->addr);
+        if (status) {
+            fprintf (stderr, "Unknown host name: %s \n", pvNameStr);
+		}
+}
+
 
 /*! \brief Constructor for the directory server
  *
@@ -75,25 +114,25 @@ never::~never()
 directoryServer::directoryServer( unsigned pvCount) : 
 	caServer()
 {
-	int resLibStatus;
-
     assert(self==0);
 	self = this;
+#ifndef _WIN32
 	signal(SIGUSR1, sigusr1);
 	signal(SIGUSR2, sigusr1);
 	signal(SIGTERM, sigusr1);
 	signal(SIGINT, sigusr1);
+#endif
 #ifdef BROADCAST_ACCESS
 	bcA = 0;
 #endif
-    this->stringResTbl.setTableSize(pvCount);
-    this->hostResTbl.setTableSize(MAX_IOCS);
-    this->neverResTbl.setTableSize(pvCount);
+	this->stringResTbl.setTableSize(pvCount);
+	this->hostResTbl.setTableSize(MAX_IOCS);
+	this->neverResTbl.setTableSize(pvCount);
 
 	stat.requests = 0;
 	stat.broadcast = 0;
 #ifdef BROADCAST_ACCESS
-	stat.broadcast_denyed = 0;
+	stat.broadcast_denied = 0;
 #endif
 	stat.pending = 0;
 	stat.host_error = 0;
@@ -101,6 +140,7 @@ directoryServer::directoryServer( unsigned pvCount) :
 	stat.hit = 0;
 }
 
+#ifndef _WIN32
 /*! \brief Signal handler
  *
  * SIGUSR1 writes summary info to the logfile.
@@ -110,8 +150,8 @@ directoryServer::directoryServer( unsigned pvCount) :
 */
 void directoryServer::sigusr1(int sig)
 {
-	struct      timeval first;
-	struct      timezone tzp;
+	epicsTime	first;
+	local_tm_nano_sec   ansiDate;
 
 	if( sig == SIGUSR2) {
 		fprintf(stdout,"SIGUSR2\n");
@@ -120,16 +160,17 @@ void directoryServer::sigusr1(int sig)
 	}
 
 	else if( sig == SIGTERM || sig == SIGINT) {
-		gettimeofday(&first, &tzp);
-		fprintf(stdout,"SIGTERM time: %s\n", ctime((const time_t*)&first.tv_sec));
-		//fprintf(stdout,"SIGTERM time: %s\n", ctime(first.tv_sec));
+		first = epicsTime::getCurrent ();
+		ansiDate = first;
+		fprintf(stdout,"SIGTERM time: %s\n", asctime(&ansiDate.ansi_tm));
 		fflush(stdout);
 		fflush(stderr);
 		outta_here = 1;
 	}
 	else {	
-		gettimeofday(&first, &tzp);
-		fprintf(stdout,"\n*********Sigusr1 time: %s\n", ctime(&first.tv_sec));
+		first = epicsTime::getCurrent ();
+		ansiDate = first;
+		fprintf(stdout,"\n*********Sigusr1 time: %s\n", asctime(&ansiDate.ansi_tm));
 		// level=2 gets summary info
 		// level=10 gets ALL names ...be careful what you ask for...
 		self->show(2);
@@ -137,6 +178,7 @@ void directoryServer::sigusr1(int sig)
 		signal(SIGUSR1, sigusr1);
 	}
 }
+#endif
 
 /*! \brief Destructor for the server
  *
@@ -153,25 +195,29 @@ directoryServer::~directoryServer()
 	// and then traverses list deleting each entry
 	this->hostResTbl.removeAll(tmpHostList);
     while ( pHost * pH = tmpHostList.get() ) {
+    	while ( pvEHost * pveh = pH->pvEList.get() ) {
+			delete pveh;
+		}
         pH->~pHost ();
     }
 	this->stringResTbl.removeAll(tmpStringList);
     while ( pvE * pS = tmpStringList.get() ) {
-        pS->~pvE ();
+		delete pS;
     }
 	this->neverResTbl.removeAll(tmpNeverList);
     while ( never * pN = tmpNeverList.get() ) {
-        pN->~never ();
+		delete pN;
     }
-
     while ( namenode * pNN = this->nameList.get() ) {
+		ca_clear_channel(pNN->get_chid());
 		delete pNN;
 	}
 
-	struct      timeval first;
-	struct      timezone tzp;
-	gettimeofday(&first, &tzp);
-	fprintf(stdout,"EXIT time: %s\n", ctime(&first.tv_sec));
+	epicsTime	first;
+	local_tm_nano_sec   ansiDate;
+	first = epicsTime::getCurrent ();
+	ansiDate = first;
+	fprintf(stdout,"EXIT time: %s\n", asctime(&ansiDate.ansi_tm));
 	fflush(stdout);
 	fflush(stderr);
 }
@@ -212,18 +258,17 @@ int directoryServer::installNeverName(const char *pName)
  * \param pPath - full path to 'signal.list' file
  * \param ipaIn - network info structure
 */
-int directoryServer::installHostName(const char *pHostName, const char *pPath,
-	struct sockaddr_in &ipaIn)
+pHost * directoryServer::installHostName(const char *pHostName, const char *pPath)
 {
 	pHost *pH;
 
-	pH = new pHost( *this, pHostName, pPath, ipaIn);
+	pH = new pHost( *this, pHostName, pPath);
 	if (pH) {
 		int resLibStatus;
 		resLibStatus = this->hostResTbl.add(*pH);
 		if (resLibStatus==0) {
 			if(verbose)fprintf(stdout, "added %s to host table\n", pHostName);
-			return(0);
+			return(pH);
 		}
 		else {
 			delete pH;
@@ -233,7 +278,7 @@ int directoryServer::installHostName(const char *pHostName, const char *pPath,
 	else {
 		fprintf(stderr,"can't create new host %s\n", pHostName);
 	}
-	return(-1);
+	return(0);
 }
 
 /*! \brief Add a pv to the pv hashtable
@@ -243,26 +288,32 @@ int directoryServer::installHostName(const char *pHostName, const char *pPath,
  * \param pName - pv name
  * \param pHostName - IOC serving this pv
 */
-int directoryServer::installPVName( const char *pName, const char *pHostName)
+int directoryServer::installPVName( const char *pName, pHost *pH)
 {
 	pvE	*pve;
+	char *hostName = 0;
 
-	pve = new pvE( *this, pName, pHostName/*, ipaIn*/);
+	if (pH) hostName = pH->get_hostname();
+	pve = new pvE( *this, pName, pH);
 	if (pve) {
 		int resLibStatus;
 		resLibStatus = this->stringResTbl.add(*pve);
 		if (resLibStatus==0) {
 			if(verbose)
-				fprintf(stdout, "Installed PV: %s  %s in hash table\n", pName, pHostName);
+				fprintf(stdout, "Installed PV: %s  %s in hash table\n", pName, hostName);
+			pvEHost *pveH = 0;
+			if (pH) pveH = new pvEHost(pve);
+			if (pveH) pH->pvEList.add(*pveH);
+			else fprintf(stdout, "cant add %s node to %s host pv table\n", pName, hostName);
 			return(0);
 		}
 		else {
 			delete pve;
 			char    checkStr[PV_NAME_SZ];
-            sprintf(checkStr,"%s%s",pHostName, HEARTBEAT);
+            sprintf(checkStr,"%s%s",hostName, HEARTBEAT);
             if(strcmp(checkStr,pName)) {
 				fprintf(stdout, "Unable to enter PV %s on %s in hash table. Duplicate?\n",
-					 pName, pHostName);
+					 pName, hostName);
 				return(-1);
 			}
 			else {
@@ -310,10 +361,12 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 	pvE 		*pve;
 	pHost 		*pH;
 	namenode	*pNN;
-	chid 		chd;
+	chid		chd;	
 	int 		i, len, status;
 
 	stat.requests++;
+
+//fprintf(stdout,"pvExistTest for pv %s\n", pPVName); fflush(stdout);
 
 	// strip the requested PV to just the record name, omit the field.
 	strncpy(shortPV, pPVName,PV_NAME_SZ-1);
@@ -331,15 +384,16 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 		return pverDoesNotExistHere;
 	}
 
+
 	stringId id(shortPV, stringId::refString);
 	pve = this->stringResTbl.lookup(id);
 
 	if(pve) {
+fprintf(stdout,"Found pv in pv hash table. %s\n", shortPV); fflush(stdout);
 		// Found pv in pv hash table. Check to see if host is up.
 		if(verbose)
 			fprintf(stdout,"found %s in PV TABLE\n", shortPV);
-		stringId id2(pve->getHostname(), stringId::refString);
-		pH = this->hostResTbl.lookup(id2);
+		pH = pve->get_pHost();
 		if(!pH) {
 			if(verbose)
 				fprintf(stdout, "Host error\n");
@@ -351,14 +405,14 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 				fprintf(stdout,"Host installed. status: %d\n",pH->get_status());
 			if(pH->get_status() == 1) {
 				stat.hit++;
-/*
+/* */
 				sockaddr_in tin = pH->getAddr();
 				printf("f: %d p: %d a: %d\n",
 					tin.sin_family,
 					tin.sin_port,
 					tin.sin_addr);
 			    printf("ADDR <%s>\n", inet_ntoa(tin.sin_addr));
-*/
+/* */
 
 				return pvExistReturn (caNetAddr(pH->getAddr()));
 	
@@ -379,6 +433,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 			if(!strcmp(pNN->get_name(), shortPV)){
 				stat.pending++;
 				if(verbose)fprintf(stdout,"Connection pending\n");
+fprintf(stdout,"Connection pending for %s\n", shortPV); fflush(stdout);
 				return (pverDoesNotExistHere);
 			}
 			iter++;
@@ -386,10 +441,11 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 #ifdef BROADCAST_ACCESS
 		// Broadcast for the requested pv.
 		if (!this->broadcastAllowed(ctx)) {
-			stat.broadcast_denyed++;
+			stat.broadcast_denied++;
 			return (pverDoesNotExistHere);
 		}
 #endif
+fprintf(stdout,"ca_search_and_connect for pv %s\n", shortPV); fflush(stdout);
 		status = ca_search_and_connect(shortPV,&chd,processChangeConnectionEvent,0);
 		if (status != ECA_NORMAL) {
 			fprintf(stderr,"ca_search failed on channel name: [%s]\n",shortPV);
@@ -398,11 +454,11 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 		else {
 			// Create a node for the linked list of pending connections
 			pNN = new namenode(shortPV, chd, 0);
-			pNN->set_otime();
 			if(pNN == NULL) {
 				fprintf(stderr,"Failed to create namenode %s\n", shortPV);
 				return pverDoesNotExistHere;
 			}
+			pNN->set_otime();
 			// Add this pv to the list of pending pv connections 
 			this->addNN(pNN);
 			if(verbose)
@@ -411,6 +467,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 			return (pverDoesNotExistHere);
 		}
 	}
+fprintf(stdout,"jba error for pv %s\n", shortPV); fflush(stdout);
 	return (pverDoesNotExistHere);
 }
 
@@ -420,13 +477,15 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVNa
 */
 void directoryServer::show (unsigned level) const
 {
-	struct      timeval first;
-	struct      timezone tzp;
-	gettimeofday(&first, &tzp);
+	epicsTime	first;
+	local_tm_nano_sec   ansiDate;
+	first = epicsTime::getCurrent ();
+	ansiDate = first;
+	fflush(stdout);
 
-	static unsigned long last_time = 0;
+	static epicsTime	last_time = first;
 	
-	fprintf(stdout,"Diag time: %s\n", ctime(&first.tv_sec));
+	fprintf(stdout,"Diag time: %s\n", asctime(&ansiDate.ansi_tm));
 	fprintf(stdout, "PV Hash Table:\n");
 	this->stringResTbl.show(level);
 	fprintf(stdout, "\n");
@@ -464,25 +523,25 @@ void directoryServer::show (unsigned level) const
 		++iter;
 	}
 */
-	if(last_time != 0) {
-		double hours = (double)(first.tv_sec - last_time)/60.0/60.0;
+	if(last_time != first) {
+		double hours = (double)(first - last_time)/60.0/60.0;
 		fprintf(stdout,"\nRequests: \t%10.0f (%9.2f/hour)\n", stat.requests, stat.requests/hours);
 		fprintf(stdout,"\nHits: \t\t%10.0f (%9.2f/hour)\n", stat.hit, stat.hit/hours);
 		fprintf(stdout,"Broadcasts: \t%10.0f (%9.2f/hour)\n", stat.broadcast, stat.broadcast/hours);
 #ifdef BROADCAST_ACCESS
-		fprintf(stdout,"Broadcasts_denyed:  %10.0f (%9.2f/hour)\n", stat.broadcast_denyed, stat.broadcast_denyed/hours);
+		fprintf(stdout,"Broadcasts_denied:  %10.0f (%9.2f/hour)\n", stat.broadcast_denied, stat.broadcast_denied/hours);
 #endif
 		fprintf(stdout,"Host_error: \t%10.0f (%9.2f/hour)\n", stat.host_error, stat.host_error/hours);
 		fprintf(stdout,"Pending: \t%10.0f (%9.2f/hour)\n", stat.pending, stat.pending/hours);
 		fprintf(stdout,"Host_down: \t%10.0f (%9.2f/hour)\n", stat.host_down, stat.host_down/hours);
-		fprintf(stdout,"    in %ld seconds (%3.2f hours) \n", first.tv_sec - last_time, hours);
+		fprintf(stdout,"    in %f seconds (%3.2f hours) \n", first - last_time, hours);
 	}
 	else {
 		fprintf(stdout,"\nRequests: %f\n", stat.requests);
 		fprintf(stdout,"\nHits: %f\n", stat.hit);
 		fprintf(stdout,"Broadcasts: %f\n", stat.broadcast);
 #ifdef BROADCAST_ACCESS
-		fprintf(stdout,"Broadcasts_denyed: %f\n", stat.broadcast_denyed);
+		fprintf(stdout,"Broadcasts_denied: %f\n", stat.broadcast_denied);
 #endif
 		fprintf(stdout,"Host_error: %f\n", stat.host_error);
 		fprintf(stdout,"Pending: %f\n", stat.pending);
@@ -494,14 +553,14 @@ void directoryServer::show (unsigned level) const
 
 	stat.broadcast = 0;
 #ifdef BROADCAST_ACCESS
-	stat.broadcast_denyed = 0;
+	stat.broadcast_denied = 0;
 #endif
 	stat.pending = 0;
 	stat.host_error = 0;
 	stat.hit = 0;
 	stat.host_down = 0;
 	stat.requests = 0;
-	last_time = first.tv_sec;
+	last_time = first;
 }
 
 #ifdef BROADCAST_ACCESS

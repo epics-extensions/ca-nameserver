@@ -44,6 +44,8 @@
 extern FILE *never_ptr;
 
 class directoryServer;
+class pHost;
+class pvE;
 
 /*! \brief hashtable for pvs which never connect
 */
@@ -83,7 +85,7 @@ public:
 	epicsTime get_otime() 	{ return otime;}
 	chid get_chid() 		{ return chd;}
 	int get_rebroadcast() 	{ return rebroadcast; }
-	inline ~namenode() 		{}
+	inline ~namenode() 		{ }
 	void set_chid(chid chdIn) { chd = chdIn; }
 private:
 	char 	name[PV_NAME_SZ];
@@ -98,38 +100,52 @@ private:
 class filewait : public tsSLNode<filewait>
 {
 public:
-	filewait( const char * hname, int sizeIn) 
+	filewait( pHost * pHostIn, int sizeIn) : pH(pHostIn)
 	{
-		strncpy(this->hostname, hname, HOST_NAME_SZ-1);
 		this->size = sizeIn;
 	}
 	int get_size() {return size;}
-	const char *get_hostname() 	{ return hostname; }
+	pHost *get_pHost() 	{ return pH; }
 	void set_size(int sizeIn) {this->size = sizeIn;}
 private:
-	char hostname[HOST_NAME_SZ];
+	pHost *pH;
 	int size;
 };
 #endif
+
+/*! \brief  Node for host linked list of pv's
+*/
+class pvEHost: public tsSLNode<pvEHost> {
+public:
+	pvEHost( pvE *pvEIn) : 
+		pve(pvEIn)
+	{
+	}
+	virtual ~pvEHost(); 		// not inline to keep aCC happy
+	pvE *get_pvE () 			{ return this->pve;}
+
+private:
+	pvE 		*pve;
+};
 
 /*! \brief  pv hash table
 */
 class pvE: public stringId, public tsSLNode<pvE> {
 public:
-	pvE( directoryServer &casIn, const char *pNameIn, const char *pHostNameIn) : 
-		stringId(pNameIn), cas(casIn)
+	pvE( directoryServer &casIn, const char *pNameIn, pHost* pHIn) : 
+		stringId(pNameIn),	cas(casIn), pH(pHIn)
 	{
 		assert(this->stringId::resourceName()!=NULL);
-		strncpy(this->hostname, pHostNameIn, HOST_NAME_SZ-1);
 		strncpy(this->name, pNameIn, PV_NAME_SZ-1);
 	}
-	virtual ~pvE(); 					// not inline to keep aCC happy
-	const char *getHostname () 			const { return this->hostname; }
+	virtual ~pvE(); 				// not inline to keep aCC happy
 	inline void destroy ();
+	pHost *get_pHost () 			const { return this->pH; }
+	char *get_name () 		 		{ return this->name; }
 
 private:
 	directoryServer 		&cas;
-	char 					hostname[HOST_NAME_SZ];
+	pHost 					*pH;
 	char 					name[PV_NAME_SZ];
 };
 
@@ -138,20 +154,24 @@ private:
 class pHost : public stringId, public tsSLNode<pHost> {
 public:
 	pHost (directoryServer &casIn, const char *pHostNameIn, 
-		const char *pPath, sockaddr_in &addrIn) : 
-		stringId(pHostNameIn), status(0), cas(casIn), addr(addrIn)
+		const char *pPath) : 
+		stringId(pHostNameIn), status(0), cas(casIn)
 	{
 		assert(this->stringId::resourceName()!=NULL);
 		strncpy(this->hostname, pHostNameIn, HOST_NAME_SZ-1);
-		strncpy(this->pathToList, pPath,PATH_NAME_SZ-1);
+		if (pPath) strncpy(this->pathToList, pPath,PATH_NAME_SZ-1);
+		memset((char *)&this->addr,0,sizeof(this->addr));
 	}
 	virtual ~pHost(); 				// not inline to keep aCC happy
 	int get_status() 				{ return this->status; }
 	void set_status(int statIn) 	{ this->status = statIn; }
 	char *get_pathToList() 			{ return this->pathToList;}
+	char *get_hostname() 			{ return this->hostname;}
 	inline void destroy ();
     const struct sockaddr_in getAddr()  const { return this->addr; }
     void setPort(int valIn) {this->addr.sin_port = valIn;}
+	void setAddr( chid chid);
+	tsSLList<pvEHost> 	pvEList;		//! list of pv's on this host
 
 private:
 	int 				status;
@@ -172,9 +192,8 @@ public:
 #ifdef BROADCAST_ACCESS
 	int broadcastAllowed (const casCtx&);
 #endif
-	int installPVName (const char *pvname, const char *pHostName);
-	int installHostName ( const char *pHostName, const char *pPath, 
-	struct sockaddr_in &ipaIn);
+	int installPVName (const char *pvname, pHost *pHostName);
+	pHost* installHostName ( const char *pHostName, const char *pPath);
 	int installNeverName (const char *pvname);
 	void addNN(namenode *pNN) {this->nameList.add(*pNN); }
 #ifdef JS_FILEWAIT

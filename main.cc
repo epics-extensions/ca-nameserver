@@ -8,27 +8,37 @@
 static char *rcsid="$Header$";
 
 
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
 #ifdef linux
+#include <libgen.h>
+#include <sys/types.h>
 #include <sys/wait.h>
-#include <time.h>
 #endif
 #ifdef SOLARIS
+#include <libgen.h>
 #include <sys/wait.h>
 #endif
-#include <stdio.h>
 
-#include <libgen.h>
-#include <strings.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 
+#ifdef _WIN32
+#include <direct.h>
+#endif
+
+#include <time.h>
+
+#if 0
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
+#include "tsSLList.h"
+#endif
+
+#include <envDefs.h>
 #include <fdmgr.h>
 #include <fdManager.h>
-#include <envDefs.h>
-#include "tsSLList.h"
+
 #include "directoryServer.h"
 
 #ifndef TRUE
@@ -40,7 +50,7 @@ static char *rcsid="$Header$";
 
 //prototypes
 int parseDirectoryFile (const char *pFileName);
-int parseDirectoryFP (FILE *pf, const char *pFileName, int first);
+int parseDirectoryFP (FILE *pf, const char *pFileName, int first, pHost* pH);
 void start_ca_monitor();
 extern "C" void registerCA(void *pfdctx,int fd,int condition);
 extern void remove_CA_mon(int fd);	//!< CA utility
@@ -52,13 +62,15 @@ extern "C" void kill_the_kid(int);
 extern "C" void sig_dont_dump(int);
 int start_daemon();
 void setup_logging(char *log_file);
-int remove_all_pvs(const char *hostname);
-int add_all_pvs(const char *hostName);
+int remove_all_pvs(pHost *pH);
+int add_all_pvs(pHost *pH);
 
 // globals
 directoryServer	*pCAS;
+#ifndef _WIN32
 pid_t child_pid;		//!< pid of the child process
 pid_t parent_pid;		//!< pid of the parent process
+#endif
 int outta_here;			//!< flag indicating kill signal has been received
 int start_new_log;		//!< flag indicating user wants to start a new log
 						//!< At Jlab, used to rm pioc pvs and dir:
@@ -70,7 +82,6 @@ int connected_iocs;		//!< count of iocs which are currently connected
 int requested_iocs;		//!< count of iocs which we would like to be connected
 int verbose = 0;		//!< verbose mode off = 0, on = 1
 FILE *never_ptr;
-int FileWait = 0;		//!< count of hosts writing signal.list files
 int filenameIsIocname = 0;  //!< Signal list filename is iocname (else basename dirname)
 
 
@@ -95,10 +106,11 @@ extern int main (int argc, char *argv[])
 	//int			nPV = DEFAULT_HASH_SIZE;		//!< default pv hash table size
 	int			pv_count;						//!< count of pv's in startup lists
 	int			daemon_status;					//!< did the forks work?
-	struct 		timeval first;					//!< time loading begins
-	struct 		timeval second;					//!< time loading ends
-	struct 		timeval lapsed;					//!< loading time
-	struct 		timezone tzp;
+	epicsTime	first;					//!< time loading begins
+	local_tm_nano_sec	ansiDate;					//!< time loading begins
+	epicsTime	second;					//!< time loading begins
+	double 		lapsed;					//!< loading time
+	pHost 		*pH;
 
 	strcpy(fileName, "pvDirectory.txt");
 	strcpy(home_dir, "./");
@@ -159,6 +171,7 @@ extern int main (int argc, char *argv[])
         }
     }
 
+#ifndef _WIN32
 	if(server_mode) {
 		fprintf(stdout, "Starting daemon\n");
 		daemon_status = start_daemon();
@@ -169,6 +182,7 @@ extern int main (int argc, char *argv[])
 	else{
 		parent_pid=getpid();
 	}
+#endif
 
     // Go to nameserver's home directory now
     if(home_dir) {
@@ -180,6 +194,7 @@ extern int main (int argc, char *argv[])
     }
 
 
+#ifndef _WIN32
 	// Create the kill and restart scripts
 #define NS_SCRIPT_FILE "nameserver.killer"
 #define NS_RESTART_FILE "nameserver.restart"
@@ -243,14 +258,17 @@ extern int main (int argc, char *argv[])
 
     if(fd!=stderr) fclose(fd);
     chmod(NS_RESTART_FILE,00755);
+#endif
 
-	gettimeofday(&first, &tzp);
+	//time  in  seconds since 00:00:00 UTC, January 1, 1970.
+	first = epicsTime::getCurrent ();
 
 	if(logging_to_file) {
 		setup_logging(log_file);
 	}
 
-	fprintf(stdout,"Start time: %s\n", ctime(&first.tv_sec));
+	ansiDate = first;
+	fprintf(stdout,"Start time: %s\n", asctime(&ansiDate.ansi_tm));
 	fflush(stdout);
 	fflush(stderr);
 
@@ -285,20 +303,15 @@ extern int main (int argc, char *argv[])
 	pCAS->setDebugLevel(debugLevel);
 
 	// Get startup timing information.
-	gettimeofday(&second, &tzp);
-	fprintf(stdout,"START time: %s\n", ctime(&second.tv_sec));
-    if (first.tv_usec > second.tv_usec) {
-              second.tv_usec += 1000000;
-              second.tv_sec--;
-    }
-    lapsed.tv_usec = second.tv_usec - first.tv_usec;
-    lapsed.tv_sec  = second.tv_sec  - first.tv_sec;
-	fprintf(stdout,"Load time: %ld sec %ld usec\n", lapsed.tv_sec, lapsed.tv_usec);
+	second = epicsTime::getCurrent ();
+	ansiDate = second;
+	fprintf(stdout,"START time: %s\n", asctime(&ansiDate.ansi_tm));
+    lapsed  = second - first;
+	fprintf(stdout,"Load time: %f sec\n", lapsed);
 	fflush(stdout);
 	fflush(stderr);
 
 //Begin PROPOSED CHANGE add an exec of a script to copy signal.list files to ./iocs
-
 
 	// Main loop
 	if (forever) {
@@ -313,20 +326,20 @@ extern int main (int argc, char *argv[])
 			ca_pend_event(1e-12);
 			//ca_poll();
 
-			// If an ioc is reconnecting,
-			// see if the ioc finished writing the signal.list file?
 #ifdef JS_FILEWAIT
-			if(FileWait){
-				struct stat sbuf;			
-				tsSLIter<filewait> iter2=pCAS->fileList.firstIter();
-				filewait *pFW;
-				filewait *pprevFW=0;
-				int size = 0;
-				// For each ioc on the linked list of reconnecting iocs
-				while(iter2.valid()) {
+			// For each ioc on the linked list of reconnecting iocs
+			// see if the ioc finished writing the signal.list file?
+			struct stat sbuf;			
+			filewait *pFW;
+			filewait *pprevFW=0;
+			int size = 0;
+			tsSLIter<filewait> iter2=pCAS->fileList.firstIter();
+			while(iter2.valid()) {
+					tsSLIter<filewait> tmp = iter2;
+					tmp++;
 					pFW=iter2.pointer();
-					char file_to_wait_for[100];
-					sprintf(file_to_wait_for,"./iocs/%s",pFW->get_hostname());
+					char *file_to_wait_for;
+					file_to_wait_for = pFW->get_pHost()->get_pathToList();
 					// We're waiting to get the filesize the same twice in a row.
 					// This is at best a poor test to see if the ioc has finished writing signal.list.
 					// Better way would be to find a token at the end of the file but signal.list
@@ -337,12 +350,11 @@ extern int main (int argc, char *argv[])
 						size = pFW->get_size();
 						if((sbuf.st_size == size) && (size != 0)) {
 							printf("SIZE EQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
-							add_all_pvs(pFW->get_hostname()); 
-							if (pprevFW) pCAS->fileList.remove(*pprevFW);
+							add_all_pvs(pFW->get_pHost()); 
+                            if(pprevFW) pCAS->fileList.remove(*pprevFW);
 							else pCAS->fileList.get();
 							delete pFW;
-							FileWait--;
-							pFW->set_size(0);
+							pFW =0;
 						}
 						else{
 							pFW->set_size(sbuf.st_size);
@@ -352,17 +364,22 @@ extern int main (int argc, char *argv[])
 					else {
 						printf("Stat failed for %s because %s\n", file_to_wait_for, strerror(errno));
 					}
-					pprevFW = pFW;
-					++iter2;
-				}
+					if (pFW) pprevFW = pFW;
+					iter2 = tmp;
 			}
 #endif
 
 			if(start_new_log) {
 #ifdef PIOC
-				remove_all_pvs("opbat1");
-				remove_all_pvs("opbat2");
-				remove_all_pvs("devsys01");
+				stringId id("opbat1", stringId::refString);
+				pH = pCAS->hostResTbl.lookup(id);
+				remove_all_pvs(pH);
+				stringId id2("opbat2", stringId::refString);
+				pH = pCAS->hostResTbl.lookup(id2);
+				remove_all_pvs(pH);
+				stringId id3("devsys01", stringId::refString);
+				pH = pCAS->hostResTbl.lookup(id3);
+				remove_all_pvs(pH);
 				system("rm -r /usr/local/bin/nameserver/piocs");
 				start_new_log = 0;
 				printf("REMOVE DONE\n");
@@ -378,10 +395,13 @@ extern int main (int argc, char *argv[])
 				begin = epicsTime::getCurrent();
 
 				// Look for purgable pv's.
-				tsSLIter<namenode> iter1=pCAS->nameList.firstIter();
 				namenode *pNN;
 				namenode *pprevNN = 0;
+				tsSLIter<namenode> iter1=pCAS->nameList.firstIter();
+				tsSLIter<namenode> tmp;
 				while(iter1.valid()) {
+					tmp = iter1;
+					tmp++;
 					pNN=iter1.pointer();
 					if((pNN->get_otime() + tooLong < now )) {
 						if(pNN->get_rebroadcast()) {
@@ -389,9 +409,11 @@ extern int main (int argc, char *argv[])
 							// Rebroadcast for heartbeat
 							chid tchid;
 							int chid_status = ca_state(pNN->get_chid());
+							pH = (pHost*)ca_puser(pNN->get_chid());
 							//fprintf(stdout, "1. chid_status: %d name: %s\n", 
 							//	chid_status, pNN->get_name());fflush(stdout);
 							if(chid_status != 3) {
+							    //enum channel_state {cs_never_conn, cs_prev_conn, cs_conn, cs_closed};
 								int stat = ca_clear_channel(pNN->get_chid());
 								ca_flush_io();
 								if(stat != ECA_NORMAL) {
@@ -406,6 +428,7 @@ extern int main (int argc, char *argv[])
 									} else {
 										pNN->set_chid(tchid);
 										pNN->set_otime();
+										ca_set_puser (tchid, pH);
 										//fprintf(stdout, "Purge: New search for %s\n", pNN->get_name());
 									}
 								}
@@ -435,9 +458,10 @@ extern int main (int argc, char *argv[])
 						if (pprevNN) pCAS->nameList.remove(*pprevNN);
 						else pCAS->nameList.get();
 						delete pNN;
+						pNN = 0;
 					} // end purge
-					pprevNN = pNN;
-					iter1++;
+					if (pNN) pprevNN = pNN;
+					iter1 = tmp;
 				} // end iter looking for things to purge
 			} // end if time to purge
 		} // end while(!outta_here)
@@ -457,6 +481,8 @@ void setup_logging(char *log_file)
 	char 		cur_time[200];
 	time_t t;
 
+#ifndef _WIN32
+	// Save log file if it exists
 	if(stat(log_file, &sbuf) == 0) {
 		if(sbuf.st_size > 0) {
 			time(&t);
@@ -469,6 +495,17 @@ void setup_logging(char *log_file)
 				unlink(log_file);
 			}
 		}
+	}
+#endif
+	// Redirect stdout and stderr
+	// Open it and close it to empty it (Necessary on WIN32,
+	// apparently not necessary on Solaris)
+	FILE *fp=fopen(log_file,"w");
+	if(fp == NULL) {
+		fprintf(stderr,"Cannot open %s\n",log_file);
+		fflush(stderr);
+	} else {
+		fclose(fp);
 	}
 	if( (freopen(log_file,"a",stderr))==NULL ) {
 		fprintf(stderr,"Redirect of stderr to file %s failed\n",log_file);
@@ -483,6 +520,7 @@ void setup_logging(char *log_file)
 /*! \brief Fork twice to create a daemon process with no associated terminal
  *
 */
+#ifndef _WIN32
 int start_daemon()
 {
 	signal(SIGCHLD, sig_chld);
@@ -522,7 +560,10 @@ int start_daemon()
 		return 0;
 	}
 }
+#endif
 
+
+#ifndef _WIN32
 /*! \brief  Prevent core dumps which delay restart
  *
 */
@@ -538,16 +579,19 @@ extern "C" void sig_dont_dump(int sig)
 	}
 	exit(0);
 }
+#endif
 	
 
 /*! \brief  Allow termination of parent process to terminate the child.
  *
 */
+#ifndef _WIN32
 extern "C" void kill_the_kid(int )
 {
         kill(child_pid, SIGTERM);
 		exit(1);
 }
+#endif
 
 /*! \brief Process the input directory file.
  *
@@ -585,7 +629,7 @@ int parseDirectoryFile (const char *pFileName)
 					input, strerror(errno));
         		continue;
     		}
-			count =  count + parseDirectoryFP (pf2, input, 1);
+			count =  count + parseDirectoryFP (pf2, input, 1, 0);
 			fclose (pf2);
 		}
 		else break;
@@ -605,14 +649,13 @@ int parseDirectoryFile (const char *pFileName)
  * \param pFileName - full path name to the file
  * \param startup_flag - 1=initialization, 0=reconnect
 */
-int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
+int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag, pHost *pHostIn)
 {
 	namenode *pNN;
-	namenode *pprevNN = 0;
 	pHost 	*pHcheck;
+	pHost 	*pH = pHostIn;
 	char 	pvNameStr[PV_NAME_SZ];
 	char 	tStr[PV_NAME_SZ];
-	struct 	sockaddr_in ipa;
 	char 	shortHN[HOST_NAME_SZ];
 	chid 	chd;
 	int 	count = 0;
@@ -620,16 +663,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 	int 	have_a_heart = 0;
 	int 	removed = 0;
 
-	// Set network info 
 	strncpy(shortHN, pIocname(filenameIsIocname,(char *)pFileName), PV_NAME_SZ-1);
-	memset((char *)&ipa,0,sizeof(ipa));
-	ipa.sin_family = AF_INET;
-	ipa.sin_port = 0u; // use the default CA server port
-	status = aToIPAddr (shortHN, 0u, &ipa);
-	if (status) {
-		fprintf (stderr, "Unknown host %s in %s \n", shortHN, pFileName);
-		return 0;
-	}
 	requested_iocs++;
 
 	// Install the heartbeat signal as a watchdog to get disconnect
@@ -644,14 +678,16 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 		}
 		sprintf(tStr,"%s%s", shortHN,HEARTBEAT);
 		status = ca_search_and_connect(tStr,&chd, WDprocessChangeConnectionEvent, 0);
-		ca_flush_io();
+		//ca_flush_io();  // connect event may occur before installPVName completes
 		if (status != ECA_NORMAL) {
 			fprintf(stderr,"1 ca_search failed on channel name: [%s]\n",tStr);
+			if (chd) ca_clear_channel(chd);
 			return(0);
 		}
 		else {
-			pCAS->installHostName(shortHN,pFileName, ipa);
-			pCAS->installPVName( tStr, shortHN);
+			pH = pCAS->installHostName(shortHN,pFileName);
+			ca_set_puser (chd, pH);
+			pCAS->installPVName( tStr, pH);
 
             // Add this pv to the list of pending pv connections
 			pNN = new namenode(tStr, chd, 1);
@@ -663,7 +699,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
             	pCAS->addNN(pNN);
 			}
 		}
-		//ca_flush_io();
+		ca_flush_io();
 	}
 
 
@@ -676,7 +712,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 		// xxx:heartbeat. On first_connect, we've already installed it. 
 		// On reconect, the heartbeat is still in the hashtable.
 		// This is faster than doing a strcmp on every signal read from the file.
-		int failed = pCAS->installPVName( pvNameStr, shortHN);
+		int failed = pCAS->installPVName( pvNameStr, pH);
 		if(failed == 1 ) {
 			have_a_heart ++;
 		}
@@ -695,7 +731,8 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 		requested_iocs--;
 		fprintf(stderr, "NO HEARTBEAT in %s\n", pFileName);
 		tsSLIter<namenode> iter=pCAS->nameList.firstIter();
-		while(iter.valid()) {
+		namenode *pprevNN=0;
+		while( iter.valid()) {
 			pNN=iter.pointer();
 			if(!strcmp(pNN->get_name(), tStr )) {
 				if (pprevNN) pCAS->nameList.remove(*pprevNN);
@@ -712,32 +749,9 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 		if(chid_status != 3)
 			ca_clear_channel(chd);
     	stringId id(shortHN, stringId::refString);
-		pHost *pH;
-        pH= pCAS->hostResTbl.lookup(id);
-
-		// Janet Anderson found problem on startup with missing heartbeat:
-		// At this point, if we call remove_all_pvs, it will fail because
-		// we haven't copied signal.list to ./iocs. It is normally copied
-		// when an ioc goes down. We'd rather not copy all signal.list files
-		// on startup so we can keep startup time as short as possible,
-		// we'll copy just the ones we need now.
-
-		mode_t mode = S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP;
-        mkdir ("./iocs", mode);
-
-        char ctmp[100];
-        sprintf(ctmp, "./iocs/%s",  shortHN);
-        mkdir (ctmp, mode);
-
-        char cmd[100];
-        sprintf(cmd, "cp %s ./iocs/%s/%s", pH->get_pathToList(), shortHN, SIG_LIST);
-        fprintf(stdout, "cmd:<%s>\n",  cmd);fflush(stdout);
-        system(cmd);
-		// end bug fix
-
 
         if(pH) {
-            removed = remove_all_pvs(shortHN);
+            removed = remove_all_pvs(pH);
 			pH= pCAS->hostResTbl.remove(*pH);
 			if(pH) delete pH; 
         }
@@ -767,59 +781,27 @@ void start_ca_monitor()
 */
 extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args args)
 {
-
-	char shortHN[HOST_NAME_SZ];
 	char pvname[PV_NAME_SZ];
+	char *hostname;
 	pHost *pH;
 	namenode *pNN;
-	namenode *pprevNN = 0;
 #ifdef JS_FILEWAIT
 	filewait *pFW;
 #endif
-	int len, i;
-	struct      timeval first;
-    struct      timezone tzp;
+	epicsTime	first;
+	local_tm_nano_sec	ansiDate;
 
 	strncpy(pvname, ca_name(args.chid),PV_NAME_SZ-1);
+	pH = (pHost*)ca_puser(args.chid);
+    hostname = pH->get_hostname();  // this is iocname
 
-	strncpy(shortHN, ca_host_name(args.chid),HOST_NAME_SZ-1);
-	len = strlen(shortHN);
-	for(i=0; i<len; i++){
-		if(shortHN[i] == HN_DELIM || shortHN[i] == HN_DELIM2){
-			shortHN[i] = 0x0;
-			break;
-		}
-	}
-
-	stringId id(shortHN, stringId::refString);
 	if (args.op == CA_OP_CONN_DOWN) {
-		pH= pCAS->hostResTbl.lookup(id);
-		if(pH) {
-				pH->set_status(2);
-		}
+		if(pH) pH->set_status(2);
 		connected_iocs --;
-		fprintf(stdout, "WATCHDOG CONN DOWN for %s\n", shortHN);
-		gettimeofday(&first, &tzp);
-    	fprintf(stdout,"*********DOWN time: %s\n", ctime(&first.tv_sec));
-
-//Begin PROPOSED CHANGE delete to End
-		// Copy old signal.list file to a safe place so it can be used later to
-		// clean up the PV hashtable.
-		// ex: cp /cs/op/iocs/iocnl1/signal.list ./iocs/iocnl1
-		mode_t mode = S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP;
-		mkdir ("./iocs", mode);
-
-		char ctmp[100];
-		sprintf(ctmp, "./iocs/%s",  shortHN);
-		mkdir (ctmp, mode);
-
-		char cmd[100];
-		sprintf(cmd, "cp %s ./iocs/%s/%s", pH->get_pathToList(), shortHN, SIG_LIST);
-        fprintf(stdout, "cmd:<%s>\n",  cmd);fflush(stdout);
-        system(cmd);
-//End PROPOSED CHANGE
-
-
+		fprintf(stdout, "WATCHDOG CONN DOWN for %s\n", hostname);
+		first = epicsTime::getCurrent();
+		ansiDate = first;
+		fprintf(stdout,"*********DOWN time: %s\n", asctime(&ansiDate.ansi_tm));
 		// Add this heartbeat pv back to the list of pending pv connections
 		pNN = new namenode(pvname, args.chid, 1);
 		pNN->set_otime();
@@ -829,17 +811,20 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 		pCAS->addNN(pNN);
 	}
 	else{
+
 		connected_iocs ++;
 		fprintf(stdout,"WATCHDOG CONN UP for <%s> on %s state: %d\n", 
-			ca_name(args.chid), ca_host_name(args.chid), ca_state(args.chid));
-		gettimeofday(&first, &tzp);
-    	fprintf(stdout,"*********UP time: %s", ctime(&first.tv_sec));
+			ca_name(args.chid), hostname, ca_state(args.chid));
+		first = epicsTime::getCurrent();
+		ansiDate = first;
+		fprintf(stdout,"*********UP time: %s", asctime(&ansiDate.ansi_tm));
 		fflush(stdout);
 
 		// Find  and remove this pv from the list of pvs
 		// with pending connections. Delete the node.
 		tsSLIter<namenode> iter=pCAS->nameList.firstIter();
 		int found = 0;
+		namenode *pprevNN=0;
 		while(iter.valid()) {
 			pNN=iter.pointer();
 			if(!strcmp(pNN->get_name(), pvname )) {
@@ -857,26 +842,10 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 			fprintf(stdout, "Cannot remove from pending: <%s>\n", pvname);
 			fflush(stdout);
 		}
-		pH= pCAS->hostResTbl.lookup(id);
+
 		if(pH) {
 			// Confirm port number.
-			char tstr[60];
-			strcpy(tstr,ca_host_name(args.chid));
-			len = strlen(tstr);
-			char cport[8];
-			int port;
-			cport[0] = tstr[len-4];
-			cport[1] = tstr[len-3];
-			cport[2] = tstr[len-2];
-			cport[3] = tstr[len-1];
-			cport[4] = 0x0;
-			port = atoi(cport);
-			if(port != 0) {
-				fprintf(stdout, "setting host %s to port %d\n",
-					ca_host_name(args.chid), port);
-				pH->setPort(port);
-			}
-
+			pH->setAddr(args.chid);
 
 			// initial connection
 			if (pH->get_status() == 0) { 
@@ -884,27 +853,26 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 			}
 			// reconnection
 			else if (pH->get_status() == 2) { 
-				remove_all_pvs(shortHN);
+				remove_all_pvs(pH);
 #ifdef JS_FILEWAIT
 				// Add this host to the list of those to check status of file
 				// to prevent reading signal.list until writing by ioc is complete.
-				pFW = new filewait(shortHN, 0);
+				pFW = new filewait(pH, 0);
 				if(pFW == NULL) {
-					fprintf(stderr,"Failed to create filewait node %s\n", shortHN);
+					fprintf(stderr,"Failed to create filewait node %s\n", hostname);
 				}
 				else {
 					pCAS->addFW(pFW);
 				}
-				FileWait++;
 #else
-				add_all_pvs(shortHN); 
+				add_all_pvs(pH); 
 //Begin PROPOSED CHANGE on reconnection ONLY, copy signal.list file to ./iocs
 //End PROPOSED CHANGE
 #endif
 			} 
 		}
 		else { 
-			fprintf(stderr,"WDCONN UP ERROR: Host %s NOT installed\n", shortHN); 
+			fprintf(stderr,"WDCONN UP ERROR: Host %s NOT installed\n", hostname); 
 			fflush(stderr);
 		}
 	}
@@ -922,7 +890,7 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
                 is the host alreadyInHostTable?
                 is hostUp?
         2. If(isHeartbeat && alreadyInHostTable)
-                remove_all_pvs(shortHN);
+                remove_all_pvs(pH);
         3. Install pv
         4. Remove pv from pending list
         5. If(isHeartbeat)
@@ -941,41 +909,36 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 */
 extern "C" void processChangeConnectionEvent(struct connection_handler_args args)
 {
-	int status;
-	struct sockaddr_in ipa;
-	pHost *pHost;
+	pHost *pH;
     char pvNameStr[PV_NAME_SZ];
-	char shortHN[HOST_NAME_SZ];
-	char portStr[8];
-	char checkStr[PV_NAME_SZ];
-	char *find;
-	unsigned int portNumber;
+	char *ptr;
+	int 	removed = 0;
 
-	strncpy(shortHN, ca_host_name(args.chid),HOST_NAME_SZ-1);
-	int len = strlen(shortHN);
-	for(int i=0; i<len; i++){
-		if(shortHN[i] == HN_DELIM || shortHN[i] == HN_DELIM2){
-			shortHN[i] = 0x0;
-			break;
-		}
-	}
-	stringId id(shortHN, stringId::refString);
-	sprintf(checkStr,"%s%s",shortHN,HEARTBEAT);
 
 	if (args.op == CA_OP_CONN_DOWN) {
-		if(strcmp(checkStr,ca_name(args.chid))) {
-			return;
-		}
+
 		fprintf(stdout,"CONN DOWN for %s\n", ca_name(args.chid)); fflush(stdout);
 		connected_iocs --;
-		pHost = pCAS->hostResTbl.lookup(id);
-		if(pHost) { 
-			pHost->set_status(2); 
+
+		pH = ( pHost * ) ca_puser( args.chid );
+		if(pH) {
+			pH->set_status(2);
+			// Remove all pvs now
+			// On reconnect this ioc may have a different port
+            removed = remove_all_pvs(pH);
+fprintf(stdout,"remove_all_pvs completed for %s\n", ca_host_name(args.chid)); fflush(stdout);
+pH= pCAS->hostResTbl.remove(*pH);
+fprintf(stdout,"hostResTbl.remove completed \n"); fflush(stdout);
+if(pH) delete pH;
+fprintf(stdout,"delete pH completed\n"); fflush(stdout);
 		}
-		else { 
-			fprintf(stderr,"CONN DOWN ERROR: HOST %s NOT INSTALLED \n", shortHN); 
+		else {
+			fprintf(stderr,"CONN DOWN ERROR: HOST %s NOT INSTALLED \n", ca_host_name(args.chid));
 			fflush(stderr);
 		}
+		ca_set_puser (args.chid, 0);
+//ca_clear_channel(args.chid);
+fprintf(stdout,"ca_clear_channel completed\n"); fflush(stdout);
 	}
 	else{
 		// Got a response to UDP broadcast for a pv not already in the pv hash table. 
@@ -984,55 +947,46 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 
 		// 1.___________________________________________
 		int isHeartbeat = 0;
-		int alreadyInHostTable = 0;
-		int hostUp = 0;
-		if(!strcmp(checkStr,ca_name(args.chid))) {
-			isHeartbeat = 1;
+
+		stringId id(ca_host_name(args.chid), stringId::refString);
+		pH = pCAS->hostResTbl.lookup(id);
+		if(pH) {
+			fprintf(stdout,"alreadyInHostTable: %s \n",
+				ca_host_name(args.chid));fflush(stdout);
 		}
-		pHost = pCAS->hostResTbl.lookup(id);
-		if(pHost) {
-			alreadyInHostTable = 1;
-			if (pHost->get_status() == 1) 
-				hostUp = 1;
+		else {
+			pH = pCAS->installHostName(ca_host_name(args.chid),0);
+			if (!pH) { fprintf(stderr,"error installing host: %s\n",
+				ca_host_name(args.chid));
+				return;
+			}
 		}
-		fprintf(stdout,"isHeartbeat: %d alreadyInHostTable: %d hostUp: %d\n",
-			isHeartbeat, alreadyInHostTable, hostUp);fflush(stdout);
+
 
 		// 2.___________________________________________
-		// This is a reconnect.
-		if(isHeartbeat && alreadyInHostTable)
-			remove_all_pvs(shortHN);
+		// This is a reconnect or initial connection.
+		if(pH->get_status()==2 || pH->get_status()==0) {
+		 	// Always monitor the first requested pv on connect
+			isHeartbeat = 1;
+	 		connected_iocs ++;
+			pH->setAddr(args.chid);
+			ca_set_puser(args.chid,pH);
+		}
 
 		// 3.___________________________________________
 		// Always install this pv into the pv hash table
-		memset((char *)&ipa,0,sizeof(ipa));
-		ipa.sin_family = AF_INET;
-		find = index(ca_host_name(args.chid),':');
-		if(find){
-			strncpy(portStr, find+1, 4);
-			portStr[4] = 0x0;
-			portNumber = atoi(portStr);
-			ipa.sin_port = htons((aitUint16) portNumber);
-			printf("portNumber: %d\n", portNumber);
-		} else {
-			ipa.sin_port = 0u;
-			printf("portNumber: 0u\n");
-		}
-		status = aToIPAddr (shortHN, ipa.sin_port, &ipa);
-		if (status) {
-			fprintf (stderr, "Unknown host name: %s with PV: %s\n",
-					shortHN, ca_name(args.chid));
-		}
 		strncpy (pvNameStr, ca_name(args.chid),PV_NAME_SZ-1);
-		pCAS->installPVName( pvNameStr, shortHN);
+		ptr = strchr(pvNameStr,'.');
+		if (ptr) *ptr = 0;
+		pCAS->installPVName( pvNameStr, pH);
 
 		// 4.___________________________________________
 		// Always remove this pv from the list of pending conections.
 		{
 			tsSLIter<namenode> iter=pCAS->nameList.firstIter();
 			namenode *pNN;
-			namenode *pprevNN = 0;
 			int found = 0;
+			namenode *pprevNN=0;
 			while(iter.valid()) {
 				pNN=iter.pointer();
 				if(!strcmp(pNN->get_name(), pvNameStr )) {
@@ -1043,78 +997,15 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 					found = 1;
 					break;
 				}
-			pprevNN = pNN;
-			iter++;
+				pprevNN = pNN;
+				iter++;
 			}
 			if(!found) fprintf(stderr, "Unable to purge %s\n", pvNameStr);
 		}
 
 		// 5.___________________________________________
-		if(isHeartbeat) {
-			// If host is in the host table, this is a reconnect.
-			if(alreadyInHostTable) {
-				// The port number may have changed on reconnect.
-				char tstr[60];
-				strcpy(tstr,ca_host_name(args.chid));
-				len = strlen(tstr);
-				char cport[8];
-				int port;
-				cport[0] = tstr[len-4];
-				cport[1] = tstr[len-3];
-				cport[2] = tstr[len-2];
-				cport[3] = tstr[len-1];
-				cport[4] = 0x0;
-				port = atoi(cport);
-				if(port != 0) {
-					fprintf(stdout, "setting host %s to port %d\n",
-						ca_host_name(args.chid), port);
-					pHost->setPort(port);
-				}
-			}
-			// This is an initial connection
-			else if(!alreadyInHostTable) {
-				char ctmp[100];
-				sprintf(ctmp, "./iocs/%s/%s",  shortHN, SIG_LIST);
-				pCAS->installHostName(shortHN, ctmp, ipa);
-
-				// Verify that host was installed.
-				pHost = pCAS->hostResTbl.lookup(id);
-				if(!pHost) {
-					fprintf(stderr,"error installing host: %s\n", shortHN);
-					pHost->set_status(2);
-				}
-			}
-			if(pHost) {
-				pHost->set_status(1);
-				connected_iocs ++;
-			}
-		}
-#ifdef PIOC
-		// 6.___________________________________________
-		// Create or append to signal.list
-		// Since we ALWAYS install pv in host table, we must ALWAYS
-		// add to signal.list file. Create it if it doesn't exist.
-		
-		// Jun 30, 2004 This really needs to be done ONLY if HN is opbat1 or opbat2.
-		// No harm done tho, and no time to test a code change before install.
-		char pathToList[PATH_NAME_SZ];
-		FILE *pf;
-		sprintf(pathToList, "./piocs/%s/%s",shortHN,SIG_LIST);
-		pf = fopen(pathToList, "a");
-		if(pf == NULL) {
-			//Create a signal.list file in ./piocs/shortHN
-			mode_t mode = S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP;
-			mkdir ("./piocs", mode);
-			char ctmp[100];
-			sprintf(ctmp, "./piocs/%s",  shortHN);
-			mkdir (ctmp, mode);
-			if(verbose)printf("created %s\n", pathToList);
-			pf = fopen(pathToList, "a");
-		}
-		fprintf(pf, "%s\n", ca_name(args.chid));
-		fclose(pf);
-		if(verbose) printf("Appended %s to SIG_LIST\n", ca_name(args.chid));
-#endif
+		// Set pHost status to UP
+		pH->set_status(1);
 
 		// 7.___________________________________________
 		// Don't want monitors on anything except heartbeats.
@@ -1123,40 +1014,6 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 			fprintf(stdout, "4. chid_status: %d name: %s\n", chid_status, pvNameStr);fflush(stdout);
 			if(chid_status != 3)
 				ca_clear_channel(args.chid);
-		}
-
-		// 8.___________________________________________
-		// Check pending list and broadcast only ONCE for heartbeat.
-		if( !isHeartbeat && !alreadyInHostTable) {
-			// Is the heartbeat for the ioc on which this pv resides already on the pending list?
-			tsSLIter<namenode> iter2 = pCAS->nameList.firstIter();
-			namenode *pNN;
-			int found = 0;
-			while(iter2.valid()) {
-				pNN=iter2.pointer();
-				if(!strcmp(pNN->get_name(), checkStr )) {
-					if(verbose)printf("%s already on b'cast list\n", checkStr);
-					found = 1;
-					break;
-				}
-				iter2++;
-			}
-			if(!found) {
-				chid chd;
-				if(verbose)fprintf(stdout, "b'casting for %s\n", checkStr);
-				status = ca_search_and_connect(checkStr,&chd,
-					processChangeConnectionEvent, 0);
-				if (status != ECA_NORMAL) 
-					fprintf(stderr,"ca_search failed on channel name: [%s]\n",checkStr);
-				else {
-					// Add this pv to the list of pending pv connections
-					//namenode *pNN;
-					pNN = new namenode(checkStr, chd, 0);
-					pNN->set_otime();
-					if(pNN == NULL)  fprintf(stderr,"Failed to create namenode %s\n", checkStr);
-					else pCAS->addNN(pNN);
-				}
-			}
 		}
 	}
 	fflush(stderr);
@@ -1173,6 +1030,7 @@ extern "C" void registerCA(void * /* pfdctx */,int fd, int condition)
         remove_CA_mon( fd);
 }
 
+#ifndef _WIN32
 /*! \brief Callback for death of a child
  *
  * When run as a daemon, death of a child shakes the parent out of pause status.
@@ -1189,6 +1047,7 @@ extern "C" void sig_chld(int )
 #endif
     signal(SIGCHLD,sig_chld);
 }
+#endif
 
 
 /*! \brief Remove all pvs from one host from the pv hashtable
@@ -1197,84 +1056,53 @@ extern "C" void sig_chld(int )
  *
  * \param hostName - name of the IOC
  */
-int remove_all_pvs(const char *hostName)
+int remove_all_pvs(pHost *pH)
 {
-	char 	tname[PATH_NAME_SZ];
-	char 	pathToList[PATH_NAME_SZ];
-	pHost 	*pH;
 	pvE 	*pve;
-	FILE	*pf;
-	char    pvNameStr[PV_NAME_SZ];
-	char    checkStr[PV_NAME_SZ];
-	int		pioc_removal = 0;
-	char 	cmd[100];
+	const char    *pvNameStr;
+	char checkStr[PV_NAME_SZ];
+	int		ct=0;
+	pvEHost		*heartbeat=0;
+	char	*hostName;
 
-	fprintf(stdout,"Deleting all pvs for %s\n", hostName); fflush(stdout);
-	stringId id(hostName, stringId::refString);
-	pH = pCAS->hostResTbl.lookup(id);
 	if(!pH) {
 		fprintf(stderr, "NOT IN TABLE\n");fflush(stderr);
 		return (-1);
 	}
+	hostName = pH->get_hostname();
+	fprintf(stdout,"Deleting all pvs for %s\n", hostName); fflush(stdout);
 
-	// use the copy of signal.list we stored in ./iocs when we got the disconnect signal
+	// Don't remove the heartbeat so we know when the ioc comes back up.
+    if (hostName) sprintf(checkStr,"%s%s",hostName, HEARTBEAT);
+    while ( pvEHost * pNode = pH->pvEList.get()) {
+		pvNameStr = pNode->get_pvE()->get_name();
+		if (!pH->get_pathToList() || strcmp(checkStr,pvNameStr)) {
 
-	strncpy(tname, pH->get_pathToList(),PATH_NAME_SZ-1);
-	sprintf(pathToList, "./iocs/%s/%s",basename(dirname(tname)), SIG_LIST);
-	printf("remove_all file: %s\n", pathToList);
-	pf = fopen(pathToList, "r");
-
-#ifdef PIOC
-	if (!pf) {
-		// Try the pioc directory
-		strncpy(tname, pH->get_pathToList(),PATH_NAME_SZ-1);
-		sprintf(pathToList, "./piocs/%s/%s",basename(dirname(tname)), SIG_LIST);
-		printf("remove_all file: %s\n", pathToList);
-		pf = fopen(pathToList, "r");
-		if (!pf) {
-			fprintf(stderr, "File access problems with file=\"%s\" because \"%s\"\n",
-				pathToList, strerror(errno));fflush(stderr);
-			return (-1);
-		}
-		pioc_removal = 1;
-	}
-#else
-	if (!pf) {
-		fprintf(stderr, "File access problems with file=\"%s\" because \"%s\"\n",
-			pathToList, strerror(errno));fflush(stderr);
-		return (-1);
-	}
-#endif
-	
-	int ct = 0;
-	while (TRUE) {
-		if (fscanf(pf, "%127s", pvNameStr) != 1) {
-			fprintf(stdout,"Deleted %d pvs from  %s \n", ct, hostName);fflush(stdout);
-			fclose (pf);
-#ifdef PIOC
-			if(pioc_removal) {
-				sprintf(cmd, "rm -r %s", pathToList);
-				system(cmd);
-				printf("cmd: %s\n", cmd);
-			}
-#endif
-			return ct; // end of file
-		}
-		// Don't remove the heartbeat so we know when the ioc comes back up.
-		sprintf(checkStr,"%s%s",hostName, HEARTBEAT);
-		if(strcmp(checkStr,pvNameStr)) {
 			stringId id2(pvNameStr, stringId::refString);
 			pve = pCAS->stringResTbl.remove(id2);
 			if(pve) {
+				//pve->~pvE ();
 				delete pve;
-				ct++;
+				ct--;
 			}
 			else {
 				fprintf(stderr,"failed to remove %s\n", pvNameStr);fflush(stderr);
 			}
+			delete pNode;
 		}
+		else {
+fprintf(stdout, "heartbeat found while removing pvs %s\n",checkStr); fflush(stdout); fflush(stdout);
+			heartbeat = pNode;
+		}
+    }
+	if (heartbeat) {
+fprintf(stdout, "adding heartbeat back into %s\n",hostName); fflush(stdout); fflush(stdout);
+		// Add heartbeat pv back into pvEList
+		pH->pvEList.add(*heartbeat);
 	}
+	return ct;
 }
+
 
 /*! \brief Add all pvs from a host to the pv hashtable
  *
@@ -1282,35 +1110,39 @@ int remove_all_pvs(const char *hostName)
  *
  * \param hostName - name of the IOC
  */
-int add_all_pvs(const char *hostName)
+int add_all_pvs(pHost *pH)
 {
 	int count;
-	char pathToList[PATH_NAME_SZ];
-	FILE	*pf;
-	pHost *pH;
+	char *pathToList;
+	FILE *pf;
 
-	fprintf(stdout,"Adding all pvs for %s\n", hostName);
+	fprintf(stdout,"Adding all pvs for %s\n", pH->get_hostname());
 	fflush(stdout);
 
-	stringId id(hostName, stringId::refString);
-	pH = pCAS->hostResTbl.lookup(id);
-	if(!pH) {
-		fprintf(stderr,"%s NOT IN TABLE\n", hostName);
-		return (-1);
-	}
-
-	strncpy(pathToList, pH->get_pathToList(),PATH_NAME_SZ-1);
+	pathToList = pH->get_pathToList();
 	pf = fopen(pathToList, "r");
 	if (!pf) {
 		fprintf(stderr, "file access problem with file=\"%s\" because \"%s\"\n",
-			pH->get_pathToList(), strerror(errno));
+			pathToList, strerror(errno));
 		return (-1);
 	}
-	count =  parseDirectoryFP (pf, pathToList, 0);
+	count =  parseDirectoryFP (pf, pathToList, 0, pH);
 	//fprintf(stdout,"File: %s PVs: %d\n", basename(dirname(pathToList)),count);
 
    	pH->set_status(1);
 	fclose (pf);
 	return 0;
+}
+
+bool identicalAddress ( struct sockaddr_in ipa1, struct sockaddr_in ipa2 )
+{
+    if ( ipa1.sin_addr.s_addr == ipa2.sin_addr.s_addr ) {
+        if ( ipa1.sin_port == ipa2.sin_port) {
+            if ( ipa1.sin_family == ipa2.sin_family ) {
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
 

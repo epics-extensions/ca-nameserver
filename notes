@@ -12,3 +12,33 @@ Fri Jul 23 09:30:31 CDT 2004
 		Changes for tsSLIter
 		Changes for osiTime, osiTimer (changed to epicsTime, epicsTimer)
 		Changes for ca ( ca_task_initialize to ca_context_create)
+
+Mon Jul 30 17:00:00 CDT 2004
+	Changes for multiple iocs on a single workstation. 
+	Added new class pvEHost for host specific linked list of pvEs. This linked 
+	list is used to delete all pvs for a host when it becomes disconnected and
+	reconnected.  Removed code for copy and read of private pvlist files.
+	Modified installHostName to return pHost*.
+	Modified pvE class to contain pHost* instead of pHostName char string.
+	Modified filewait class to contain pHost* instead of pHostName char string.
+	Changed code to set "struct sockaddr_in ipa" values after channel connects
+	not when pHost is created.
+
+	The pHost class now is an ioc class and hostname means iocname (not channel
+	ca server name). Multiple ioc's can exist on a single ip host. The iocnames
+	now may not have anything to do with the ip host name. The heartbeat pv has
+	the name <iocname>:heartbeat. The iocname may be the ip host name in some 
+	cases.
+
+	If the search for an unknown pv connects and the ip host is not in the host 
+	hash table, use the "host:port" string to create a pHost class and add it to
+	the host hash table. 
+
+Fri Aug 20 16:31:23 CDT 2004
+	Make nameserver portable.
+		No server mode (watcher process) on WIN32.
+		No kill and restart scripts on WIN32.
+		Remove usage of basename and dirname.
+		Remove usage of getopt.
+		Remove usage of gettimeofday (use epicsTime).
+

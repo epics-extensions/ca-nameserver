@@ -8,8 +8,8 @@ include $(TOP)/config/CONFIG_EXTENSIONS
 BROADCAST_ACCESS=NO
 
 ifeq ($(OS_CLASS),solaris)
-CC  = purify -first-only -chain-length=30 $($(ANSI)_$(CMPLR))
-CXX = purify -first-only -chain-length=30 $($(CPLUSPLUS)_$(CXXCMPLR))
+CC  = purify -first-only -chain-length=40 $($(ANSI)_$(CMPLR))
+CXX = purify -first-only -chain-length=40 $($(CPLUSPLUS)_$(CXXCMPLR))
 HOST_OPT=NO
 endif
 
@@ -40,7 +40,7 @@ ca_DIR  = $(EPICS_BASE_LIB)
 Db_DIR  = $(EPICS_BASE_LIB)
 Com_DIR = $(EPICS_BASE_LIB)
 
-SRCS += main.cc
+#SRCS += main.cc
 SRCS += dirfmgr.cc
 SRCS += directoryServer.cc
 
