@@ -138,8 +138,13 @@ extern int main (int argc, char *argv[])
                 filenameIsIocname = 1;
                 break;
            case '?':
-				fprintf (stderr, "usage: %s [-d<debug level> -f<PV directory file> -a<access security file> -p<pv list file> -l<log file> -s -h<hash table size>] [-c cd to -v]\n", argv[0]);
+#ifdef BROADCAST_ACCESS
+				fprintf (stderr, "usage: %s [-d<debug level> -f<PV directory file> -b<broadcast_access file> -l<log file> -s -h<hash table size>] [-c cd to -v]\n", argv[0]);
+#else
+				fprintf (stderr, "usage: %s [-d<debug level> -f<PV directory file> -l<log file> -s -h<hash table size>] [-c cd to -v]\n", argv[0]);
+#endif
         		exit(-1);
+
         }
     }
 
