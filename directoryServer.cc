@@ -10,6 +10,21 @@
 #ifdef linux
 #include <time.h>
 #endif
+#include <cadef.h>
+
+#if EPICS_REVISION > 13
+#include <osiSock.h>
+#else
+#include <bsdSocketResource.h>
+// server.h is private and not in base/include.  We are including it
+// so we can access casCtx, which is not normally possible (by
+// intent).  Note: The src files have to be available to do this.
+#include "server.h"
+inline casCoreClient * casCtx::getClient() const
+{
+    return this->pClient;
+}
+#endif
 
 static directoryServer *self = 0;
 
@@ -62,6 +77,7 @@ directoryServer::directoryServer( unsigned pvCount) :
 	signal(SIGUSR2, sigusr1);
 	signal(SIGTERM, sigusr1);
 	signal(SIGINT, sigusr1);
+	as = 0;
 
     resLibStatus = this->stringResTbl.init(pvCount);
     if (resLibStatus) {
@@ -268,7 +284,7 @@ int directoryServer::installPVName( const char *pName, const char *pHostName)
  * \param casCtx - not used
  * \param pPVName - name of the pv we're looking for
 */
-pvExistReturn directoryServer::pvExistTest (const casCtx&, const char *pPVName)
+pvExistReturn directoryServer::pvExistTest (const casCtx& ctx, const char *pPVName)
 {
 	char 		shortPV[PV_NAME_SZ];
 	pvE 		*pve;
@@ -345,26 +361,28 @@ pvExistReturn directoryServer::pvExistTest (const casCtx&, const char *pPVName)
 			}
 		}
 		// Broadcast for the requested pv.
-		status = ca_search_and_connect(shortPV,&chd,processChangeConnectionEvent,0);
-		if (status != ECA_NORMAL) {
-			fprintf(stderr,"ca_search failed on channel name: [%s]\n",shortPV);
-			return pverDoesNotExistHere;
-		}
-		else {
-			// Create a node for the linked list of pending connections
-			pNN = new namenode(shortPV, chd, 0);
-			pNN->set_otime();
-			if(pNN == NULL) {
-				fprintf(stderr,"Failed to create namenode %s\n", shortPV);
+		if (this->broadcastAllowed(ctx,pPVName)) {
+			status = ca_search_and_connect(shortPV,&chd,processChangeConnectionEvent,0);
+			if (status != ECA_NORMAL) {
+				fprintf(stderr,"ca_search failed on channel name: [%s]\n",shortPV);
 				return pverDoesNotExistHere;
 			}
-			// Add this pv to the list of pending pv connections 
-			this->addNN(pNN);
-			if(verbose)
-				fprintf(stdout, "broadcasting for %s\n", shortPV);
-			stat.broadcast++;
-			return (pverDoesNotExistHere);
-		}
+			else {
+				// Create a node for the linked list of pending connections
+				pNN = new namenode(shortPV, chd, 0);
+				pNN->set_otime();
+				if(pNN == NULL) {
+					fprintf(stderr,"Failed to create namenode %s\n", shortPV);
+					return pverDoesNotExistHere;
+				}
+				// Add this pv to the list of pending pv connections 
+				this->addNN(pNN);
+				if(verbose)
+					fprintf(stdout, "broadcasting for %s\n", shortPV);
+				stat.broadcast++;
+				return (pverDoesNotExistHere);
+			}
+		} else return pverDoesNotExistHere;
 	}
 	return (pverDoesNotExistHere);
 }
@@ -449,3 +467,48 @@ void directoryServer::show (unsigned level) const
 	stat.requests = 0;
 	last_time = first.tv_sec;
 }
+
+int directoryServer::broadcastAllowed (const casCtx& ctx, const char *pvname)
+{
+	gateAsEntry* pNode;
+	char hostname[GATE_MAX_HOSTNAME_LENGTH];
+	int len,i;
+
+	if (!this->as) return FALSE;
+
+    casClient *pClient;
+    pClient=(casClient *)ctx.getClient();
+
+	// Make the hash name
+    pClient->clientHostName(hostname, sizeof(hostname));
+
+	// Get the hostname and check if it is allowed
+	//getClientHostName(ctx, hostname, sizeof(hostname));
+
+    len = strlen(hostname);
+    for(i=0; i<len; i++){
+        if(hostname[i] == HN_DELIM || hostname[i] == HN_DELIM2 ){
+            hostname[i] = 0x0;
+            break;
+        }
+    }
+
+	// See if requested name is allowed and check for aliases
+	if ( !(pNode = this->as->findEntry(pvname, hostname)) )
+	{
+		gateDebug2(1,"gateServer::broadcastAllowed() %s (from %s) is not allowed\n",
+		  pvname, hostname);
+		if (verbose) fprintf(stdout,"Broadcast for  %s (from %s ) NOT allowed\n", pvname,hostname);
+//fflush(stdout);
+
+		return FALSE;
+	}
+
+    gateDebug1(1,"gateServer::broadCastAllowed() %s \n",
+               pvname);
+    if (verbose) fprintf(stdout,"Broadcast for  %s (from %s ) IS allowed\n", pvname,hostname);
+//fflush(stdout);
+
+	return TRUE;
+}
+
