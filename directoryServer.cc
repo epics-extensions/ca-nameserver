@@ -6,6 +6,9 @@
  * Initial release September 2001
 */
 
+static char *rcsid="$Header$";
+
+
 #include "directoryServer.h"
 #ifdef linux
 #include <time.h>
@@ -116,7 +119,9 @@ directoryServer::directoryServer( unsigned pvCount) :
 
 /*! \brief Signal handler
  *
- * SIGUSR1 writes summary info to the logfile.SIGUSR2 starts a new logfile.
+ * SIGUSR1 writes summary info to the logfile.
+ * SIGUSR2 starts a new logfile.
+ * At JLab, SIGUSR2 deletes all knowledge of pioc pvs.
  * SIGTERM and SIGINT set the "outta_here" flag.
 */
 void directoryServer::sigusr1(int sig)

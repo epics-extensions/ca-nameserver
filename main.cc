@@ -5,6 +5,8 @@
  * \Revision History:
  * Initial release September 2001
 */
+static char *rcsid="$Header$";
+
 
 #ifdef linux
 #include <sys/wait.h>
@@ -44,9 +46,9 @@ extern void remove_CA_mon(int fd);	//!< CA utility
 extern void add_CA_mon(int fd);		//!< CA utility
 extern "C" void processChangeConnectionEvent( struct connection_handler_args args);
 extern "C" void WDprocessChangeConnectionEvent( struct connection_handler_args args);
-void sig_chld(int);
-void kill_the_kid(int);
-void sig_dont_dump(int);
+extern "C" void sig_chld(int);
+extern "C" void kill_the_kid(int);
+extern "C" void sig_dont_dump(int);
 int start_daemon();
 void setup_logging(char *log_file);
 int remove_all_pvs(const char *hostname);
@@ -58,6 +60,11 @@ pid_t child_pid;		//!< pid of the child process
 pid_t parent_pid;		//!< pid of the parent process
 int outta_here;			//!< flag indicating kill signal has been received
 int start_new_log;		//!< flag indicating user wants to start a new log
+						//!< At Jlab, used to rm pioc pvs and dir:
+						//!< remove_all_pvs("opbat1");
+						//!< remove_all_pvs("opbat2");
+						//!< remove_all_pvs("devsys01");
+						//!< system("rm -r /usr/local/bin/nameserver/piocs");
 int connected_iocs;		//!< count of iocs which are currently connected
 int requested_iocs;		//!< count of iocs which we would like to be connected
 int verbose = 0;		//!< verbose mode off = 0, on = 1
@@ -289,6 +296,8 @@ extern int main (int argc, char *argv[])
 	fflush(stdout);
 	fflush(stderr);
 
+//Begin PROPOSED CHANGE add an exec of a script to copy signal.list files to ./iocs
+
 
 	// Main loop
 	if (forever) {
@@ -504,7 +513,7 @@ int start_daemon()
 /*! \brief  Prevent core dumps which delay restart
  *
 */
-void sig_dont_dump(int sig)
+extern "C" void sig_dont_dump(int sig)
 {
 	switch(sig) {
 		case SIGBUS:
@@ -521,7 +530,7 @@ void sig_dont_dump(int sig)
 /*! \brief  Allow termination of parent process to terminate the child.
  *
 */
-void kill_the_kid(int )
+extern "C" void kill_the_kid(int )
 {
         kill(child_pid, SIGTERM);
 		exit(1);
@@ -774,6 +783,7 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 		gettimeofday(&first, &tzp);
     	fprintf(stdout,"*********DOWN time: %s\n", ctime(&first.tv_sec));
 
+//Begin PROPOSED CHANGE delete to End
 		// Copy old signal.list file to a safe place so it can be used later to
 		// clean up the PV hashtable.
 		// ex: cp /cs/op/iocs/iocnl1/signal.list ./iocs/iocnl1
@@ -788,6 +798,7 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 		sprintf(cmd, "cp %s ./iocs/%s/%s", pH->get_pathToList(), shortHN, SIG_LIST);
         fprintf(stdout, "cmd:<%s>\n",  cmd);fflush(stdout);
         system(cmd);
+//End PROPOSED CHANGE
 
 
 		// Add this heartbeat pv back to the list of pending pv connections
@@ -864,6 +875,8 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 				FileWait++;
 #else
 				add_all_pvs(shortHN); 
+//Begin PROPOSED CHANGE on reconnection ONLY, copy signal.list file to ./iocs
+//End PROPOSED CHANGE
 #endif
 			} 
 		}
@@ -1048,10 +1061,14 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 				connected_iocs ++;
 			}
 		}
+#ifdef PIOC
 		// 6.___________________________________________
 		// Create or append to signal.list
 		// Since we ALWAYS install pv in host table, we must ALWAYS
 		// add to signal.list file. Create it if it doesn't exist.
+		
+		// Jun 30, 2004 This really needs to be done ONLY if HN is opbat1 or opbat2.
+		// No harm done tho, and no time to test a code change before install.
 		char pathToList[PATH_NAME_SZ];
 		FILE *pf;
 		sprintf(pathToList, "./piocs/%s/%s",shortHN,SIG_LIST);
@@ -1069,6 +1086,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 		fprintf(pf, "%s\n", ca_name(args.chid));
 		fclose(pf);
 		if(verbose) printf("Appended %s to SIG_LIST\n", ca_name(args.chid));
+#endif
 
 		// 7.___________________________________________
 		// Don't want monitors on anything except heartbeats.
@@ -1130,11 +1148,11 @@ extern "C" void registerCA(void * /* pfdctx */,int fd, int condition)
  * When run as a daemon, death of a child shakes the parent out of pause status.
  * A new child will be started.
 */
-void sig_chld(int )
+extern "C" void sig_chld(int )
 {
 #ifdef SOLARIS
     while(waitpid(-1,NULL,WNOHANG)>0);
-#elif defined linux
+#elif defined linux 
     while(waitpid(-1,NULL,WNOHANG)>0);
 #else
     while(wait3(NULL,WNOHANG,NULL)>0);
@@ -1176,6 +1194,7 @@ int remove_all_pvs(const char *hostName)
 	printf("remove_all file: %s\n", pathToList);
 	pf = fopen(pathToList, "r");
 
+#ifdef PIOC
 	if (!pf) {
 		// Try the pioc directory
 		strncpy(tname, pH->get_pathToList(),PATH_NAME_SZ-1);
@@ -1189,22 +1208,26 @@ int remove_all_pvs(const char *hostName)
 		}
 		pioc_removal = 1;
 	}
+#else
 	if (!pf) {
 		fprintf(stderr, "File access problems with file=\"%s\" because \"%s\"\n",
 			pathToList, strerror(errno));fflush(stderr);
 		return (-1);
 	}
+#endif
 	
 	int ct = 0;
 	while (TRUE) {
 		if (fscanf(pf, "%127s", pvNameStr) != 1) {
 			fprintf(stdout,"Deleted %d pvs from  %s \n", ct, hostName);fflush(stdout);
 			fclose (pf);
+#ifdef PIOC
 			if(pioc_removal) {
 				sprintf(cmd, "rm -r %s", pathToList);
 				system(cmd);
 				printf("cmd: %s\n", cmd);
 			}
+#endif
 			return ct; // end of file
 		}
 		// Don't remove the heartbeat so we know when the ioc comes back up.
