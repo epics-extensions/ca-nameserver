@@ -42,8 +42,6 @@
 #define HOST_NAME_SZ 80
 #define PV_NAME_SZ 80
 #define PATH_NAME_SZ 120
-#define GATE_MAX_PVNAME_LENGTH 64u
-#define GATE_MAX_HOSTNAME_LENGTH 64u
 
 extern FILE *never_ptr;
 

@@ -495,7 +495,7 @@ void directoryServer::show (unsigned level) const
 #ifdef BROADCAST_ACCESS
 int directoryServer::broadcastAllowed (const casCtx& ctx)
 {
-	char hostname[GATE_MAX_HOSTNAME_LENGTH];
+	char hostname[HOST_NAME_SZ];
 	int len,i;
 	char *ptr;
 
