@@ -575,7 +575,6 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
 		}
 		sprintf(tStr,"%s%s", shortHN,HEARTBEAT);
 		status = ca_search_and_connect(tStr,&chd, WDprocessChangeConnectionEvent, 0);
-		ca_flush_io();
 		if (status != ECA_NORMAL) {
 			fprintf(stderr,"1 ca_search failed on channel name: [%s]\n",tStr);
 			return(0);
@@ -594,6 +593,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag)
             	pCAS->addNN(pNN);
 			}
 		}
+		ca_flush_io();
 	}
 
 	while (TRUE) {
@@ -682,7 +682,7 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 	strncpy(shortHN, ca_host_name(args.chid),HOST_NAME_SZ-1);
 	len = strlen(shortHN);
 	for(i=0; i<len; i++){
-		if(shortHN[i] == HN_DELIM){
+		if(shortHN[i] == HN_DELIM || shortHN[i] == HN_DELIM2 ){
 			shortHN[i] = 0x0;
 			break;
 		}
@@ -843,7 +843,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 	strncpy(shortHN, ca_host_name(args.chid),HOST_NAME_SZ-1);
 	int len = strlen(shortHN);
 	for(int i=0; i<len; i++){
-		if(shortHN[i] == HN_DELIM){
+		if(shortHN[i] == HN_DELIM || shortHN[i] == HN_DELIM2 ){
 			shortHN[i] = 0x0;
 			break;
 		}
