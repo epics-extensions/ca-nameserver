@@ -1122,7 +1122,7 @@ extern "C" void sig_chld(int )
 {
 #ifdef SOLARIS
     while(waitpid(-1,NULL,WNOHANG)>0);
-#elseifdef linux
+#elif defined(linux)
     while(waitpid(-1,NULL,WNOHANG)>0);
 #else
     while(wait3(NULL,WNOHANG,NULL)>0);
