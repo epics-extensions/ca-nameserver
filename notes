@@ -4,3 +4,11 @@ Fri Nov 22 09:20:21 CST 2002  -   caDirServ.20021001
 	Made some portablility changes.
 	Added '-n' option: Input Signal list filename is iocname 
 	(else iocname is basename(dirname(name)) )
+
+Fri Jul 23 09:30:31 CDT 2004
+	Changes for R3.14 build
+		Changes for tsSLList  (init and destroyAllEntries)
+		Changes for cas server ( create pvExistTest(3parms) )
+		Changes for tsSLIter
+		Changes for osiTime, osiTimer (changed to epicsTime, epicsTimer)
+		Changes for ca ( ca_task_initialize to ca_context_create)
