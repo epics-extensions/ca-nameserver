@@ -10,9 +10,9 @@
 #ifdef linux
 #include <time.h>
 #endif
-#include <cadef.h>
 
 #ifdef BROADCAST_ACCESS
+#include <cadef.h>
 #if EPICS_REVISION > 13
 #include <osiSock.h>
 #else
@@ -119,7 +119,7 @@ directoryServer::directoryServer( unsigned pvCount) :
  * SIGUSR1 writes summary info to the logfile.SIGUSR2 starts a new logfile.
  * SIGTERM and SIGINT set the "outta_here" flag.
 */
-extern "C" void directoryServer::sigusr1(int sig)
+void directoryServer::sigusr1(int sig)
 {
 	struct      timeval first;
 	struct      timezone tzp;
