@@ -37,6 +37,7 @@ asHost_DIR  = $(EPICS_BASE_LIB)
 Com_DIR = $(EPICS_BASE_LIB)
 gdd_DIR = $(EPICS_BASE_LIB)
 
+SYS_PROD_LIBS_solaris := nsl
 SYS_PROD_LIBS_WIN32 := ws2_32 advapi32 user32
 
 SRCS +=main.cc
