@@ -45,9 +45,6 @@ static char *rcsid="$Header$";
 #define TRUE 1
 #endif
 
-#define  pIocname(isFilname,pPath) (filenameIsIocname ? \
-	basename((char *)pPath): basename(dirname((char *)pPath)))
-
 //prototypes
 int parseDirectoryFile (const char *pFileName);
 int parseDirectoryFP (FILE *pf, const char *pFileName, int first, pHost* pH);
@@ -84,6 +81,7 @@ int verbose = 0;		//!< verbose mode off = 0, on = 1
 FILE *never_ptr;
 int filenameIsIocname = 0;  //!< Signal list filename is iocname (else basename dirname)
 
+char *iocname(int isFilname,char *pPath);
 
 /*! \brief Initialization and main loop
  *
@@ -92,9 +90,12 @@ extern int main (int argc, char *argv[])
 {
 	// Runtime option args:
 	unsigned 	debugLevel = 0u;
-	char		fileName[128];					//!< default input filename
-	char		log_file[128];					//!< default log filename
-	char		home_dir[128];					//!< default home directory
+	char		*fileName;					//!< default input filename
+	char		*log_file;					//!< default log filename
+	char		*home_dir;					//!< default home directory
+	char		defaultFileName[] = "pvDirectory.txt";
+	char		defaultLog_file[] = "log.file";
+	char		defaultHome_dir[] = "./";
 #ifdef BROADCAST_ACCESS
 	char*		broadcast_file=0;				//!< default broadcast filename
 #endif
@@ -105,71 +106,118 @@ extern int main (int argc, char *argv[])
 	int			logging_to_file = 0;			//!< default is logging to terminal
 	//int			nPV = DEFAULT_HASH_SIZE;		//!< default pv hash table size
 	int			pv_count;						//!< count of pv's in startup lists
+#ifndef _WIN32
 	int			daemon_status;					//!< did the forks work?
+#endif
 	epicsTime	first;					//!< time loading begins
 	local_tm_nano_sec	ansiDate;					//!< time loading begins
 	epicsTime	second;					//!< time loading begins
 	double 		lapsed;					//!< loading time
 	pHost 		*pH;
+	int 		parm_error=0;
+	int 		i;
+	int c;
 
-	strcpy(fileName, "pvDirectory.txt");
-	strcpy(home_dir, "./");
-	strcpy(log_file, "log.file");
+    fileName = defaultFileName;
+    log_file = defaultLog_file;
+    home_dir = defaultHome_dir;
+
+//printf ("argc=%d\n",argc);
 
 	// Parse command line args.
-	//extern char *optarg;
-	//char *errstr;
-	int c;
-#ifdef BROADCAST_ACCESS
-    while ((c = getopt(argc, argv, "b:d:h:f:l:c:nsv")) != -1)
-#else 
-    while ((c = getopt(argc, argv, "d:h:f:l:c:nsv")) != -1)
-#endif
-    {
-        switch (c) {
+	for (i = 1; i<argc && !parm_error; i++) {
+//printf ("i=%d  argv=%s\n",i,argv[i]);
+		switch(c = argv[i][1]) {
            case 'v':
                 verbose = 1;
                 break;
            case 'd':
-                debugLevel = atoi(optarg);
+				if(++i>=argc) parm_error=1;
+				else {
+					if(argv[i][0]=='-') parm_error=2;
+					else {
+						debugLevel=atoi(argv[i]);
+					}
+				}
+				break;
                 break;
            case 'f':
-                strncpy(fileName, optarg, 127);
-                break;
+				if(++i>=argc) parm_error=1;
+				else {
+					if(argv[i][0]=='-') parm_error=2;
+					else {
+                        fileName = argv[i];
+					}
+				}
+				break;
            case 'c':
-                strncpy(home_dir, optarg, 127);
+				if(++i>=argc) parm_error=1;
+				else {
+					if(argv[i][0]=='-') parm_error=2;
+					else {
+                        home_dir = argv[i];
+					}
+				}
 				break;
            case 'l':
-                strncpy(log_file, optarg,127);
-				fprintf(stdout,"logging to file: %s\n",log_file);
-				logging_to_file = 1;
+				if(++i>=argc) parm_error=1;
+				else {
+					if(argv[i][0]=='-') parm_error=2;
+					else {
+                        log_file = argv[i];
+						fprintf(stdout,"logging to file: %s\n",log_file);
+						logging_to_file = 1;
+					}
+				}
                 break;
 #ifdef BROADCAST_ACCESS
            case 'b':
-                broadcast_file=optarg;
-                fprintf(stdout,"broadcast file: %s\n",broadcast_file);
-                break;
+				if(++i>=argc) parm_error=1;
+				else {
+					if(argv[i][0]=='-') parm_error=2;
+					else {
+						broadcast_file=argv[i];
+                		fprintf(stdout,"broadcast file: %s\n",broadcast_file);
+					}
+				}
+				break;
 #endif
            case 's':
                 server_mode = 1;
 				logging_to_file = 1;
                 break;
            case 'h':
-                hash_table_size = atoi(optarg);;
-                break;
+				if(++i>=argc) parm_error=1;
+				else {
+					if(argv[i][0]=='-') parm_error=2;
+					else {
+						hash_table_size=atoi(argv[i]);
+					}
+				}
+				break;
            case 'n':
                 filenameIsIocname = 1;
                 break;
            case '?':
-#ifdef BROADCAST_ACCESS
-				fprintf (stderr, "usage: %s [-d<debug level> -f<PV directory file> -b<broadcast_access file> -l<log file> -s -h<hash table size>] [-c cd to -v]\n", argv[0]);
-#else
-				fprintf (stderr, "usage: %s [-d<debug level> -f<PV directory file> -l<log file> -s -h<hash table size>] [-c cd to -v]\n", argv[0]);
-#endif
-        		exit(-1);
+				parm_error = -1;
+           default:
+				parm_error = 1;
 
         }
     }
+
+    if (parm_error) {
+        if (parm_error == 1) fprintf(stderr,"\nInvalid command line option %s\n ", argv[i-1]);
+        if (parm_error == 2) fprintf(stderr,"\nInvalid command line option %s %s\n ",
+             argv[i-2], argv[i-1]);
+        fprintf (stderr, "usage: %s [-d<debug level> -f<PV directory file> "
+#ifdef BROADCAST_ACCESS
+           "-b<broadcast_access file> "
+#endif
+           "-l<log file> -s -h<hash table size>] [-c cd to -v]\n", argv[0]);
+       	exit(-1);
+    }
+
 
 #ifndef _WIN32
 	if(server_mode) {
@@ -192,7 +240,6 @@ extern int main (int argc, char *argv[])
             return -1;
         }
     }
-
 
 #ifndef _WIN32
 	// Create the kill and restart scripts
@@ -349,7 +396,7 @@ extern int main (int argc, char *argv[])
 						// So at least we will have a delay in having to get here a second time.
 						size = pFW->get_size();
 						if((sbuf.st_size == size) && (size != 0)) {
-							printf("SIZE EQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
+							//printf("SIZE EQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
 							add_all_pvs(pFW->get_pHost()); 
                             if(pprevFW) pCAS->fileList.remove(*pprevFW);
 							else pCAS->fileList.get();
@@ -358,7 +405,7 @@ extern int main (int argc, char *argv[])
 						}
 						else{
 							pFW->set_size(sbuf.st_size);
-							printf("UNEQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
+							//printf("UNEQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
 						}
 					}
 					else {
@@ -477,11 +524,11 @@ extern int main (int argc, char *argv[])
 */
 void setup_logging(char *log_file)
 {
+#ifndef _WIN32
 	struct		stat sbuf;			//old logfile info
 	char 		cur_time[200];
 	time_t t;
 
-#ifndef _WIN32
 	// Save log file if it exists
 	if(stat(log_file, &sbuf) == 0) {
 		if(sbuf.st_size > 0) {
@@ -662,8 +709,17 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag, pHost *
 	int 	status;
 	int 	have_a_heart = 0;
 	int 	removed = 0;
+	char 	*fileNameCopy;
+	char 	*pIocname;
 
-	strncpy(shortHN, pIocname(filenameIsIocname,(char *)pFileName), PV_NAME_SZ-1);
+	if (!pFileName) return 0;
+	fileNameCopy = strdup(pFileName); 
+	if (!fileNameCopy) return 0;
+	pIocname = iocname(filenameIsIocname, fileNameCopy);
+	strlcpy(shortHN, pIocname, HOST_NAME_SZ);
+//printf("===========parseDirectoryFP entered for %s\n",shortHN);
+//printf("===========pFileName =  %s\n",pFileName);
+	free(fileNameCopy);
 	requested_iocs++;
 
 	// Install the heartbeat signal as a watchdog to get disconnect
@@ -795,8 +851,10 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 	pH = (pHost*)ca_puser(args.chid);
     hostname = pH->get_hostname();  // this is iocname
 
+//printf("====WDprocessChangeConnectionEvent enterec  pH->get_status is %d\n",pH->get_status());
 	if (args.op == CA_OP_CONN_DOWN) {
 		if(pH) pH->set_status(2);
+//printf("====CONN DOWN pH->get_status is %d\n",pH->get_status());
 		connected_iocs --;
 		fprintf(stdout, "WATCHDOG CONN DOWN for %s\n", hostname);
 		first = epicsTime::getCurrent();
@@ -812,6 +870,7 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 	}
 	else{
 
+//printf("====CONN UP  pH->get_status is %d\n",pH->get_status());
 		connected_iocs ++;
 		fprintf(stdout,"WATCHDOG CONN UP for <%s> on %s state: %d\n", 
 			ca_name(args.chid), hostname, ca_state(args.chid));
@@ -870,6 +929,8 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 //End PROPOSED CHANGE
 #endif
 			} 
+			else {
+			}
 		}
 		else { 
 			fprintf(stderr,"WDCONN UP ERROR: Host %s NOT installed\n", hostname); 
@@ -923,14 +984,15 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 		pH = ( pHost * ) ca_puser( args.chid );
 		if(pH) {
 			pH->set_status(2);
+//printf("EEEEEEEEEEEEEEEEEE===CONN DOWN pH->get_status is %d\n",pH->get_status());
 			// Remove all pvs now
 			// On reconnect this ioc may have a different port
             removed = remove_all_pvs(pH);
-fprintf(stdout,"remove_all_pvs completed for %s\n", ca_host_name(args.chid)); fflush(stdout);
+//fprintf(stdout,"remove_all_pvs completed for %s\n", ca_host_name(args.chid)); fflush(stdout);
 pH= pCAS->hostResTbl.remove(*pH);
-fprintf(stdout,"hostResTbl.remove completed \n"); fflush(stdout);
+//fprintf(stdout,"hostResTbl.remove completed \n"); fflush(stdout);
 if(pH) delete pH;
-fprintf(stdout,"delete pH completed\n"); fflush(stdout);
+//fprintf(stdout,"delete pH completed\n"); fflush(stdout);
 		}
 		else {
 			fprintf(stderr,"CONN DOWN ERROR: HOST %s NOT INSTALLED \n", ca_host_name(args.chid));
@@ -938,12 +1000,14 @@ fprintf(stdout,"delete pH completed\n"); fflush(stdout);
 		}
 		ca_set_puser (args.chid, 0);
 //ca_clear_channel(args.chid);
-fprintf(stdout,"ca_clear_channel completed\n"); fflush(stdout);
+//fprintf(stdout,"ca_clear_channel completed\n"); fflush(stdout);
 	}
 	else{
 		// Got a response to UDP broadcast for a pv not already in the pv hash table. 
+/*
 		fprintf(stdout,"CONN UP for <%s> on <%s> state: %d\n", 
 			ca_name(args.chid), ca_host_name(args.chid), ca_state(args.chid));
+*/
 
 		// 1.___________________________________________
 		int isHeartbeat = 0;
@@ -951,8 +1015,10 @@ fprintf(stdout,"ca_clear_channel completed\n"); fflush(stdout);
 		stringId id(ca_host_name(args.chid), stringId::refString);
 		pH = pCAS->hostResTbl.lookup(id);
 		if(pH) {
+/*
 			fprintf(stdout,"alreadyInHostTable: %s \n",
 				ca_host_name(args.chid));fflush(stdout);
+*/
 		}
 		else {
 			pH = pCAS->installHostName(ca_host_name(args.chid),0);
@@ -960,6 +1026,7 @@ fprintf(stdout,"ca_clear_channel completed\n"); fflush(stdout);
 				ca_host_name(args.chid));
 				return;
 			}
+			isHeartbeat = 1;
 		}
 
 
@@ -967,7 +1034,6 @@ fprintf(stdout,"ca_clear_channel completed\n"); fflush(stdout);
 		// This is a reconnect or initial connection.
 		if(pH->get_status()==2 || pH->get_status()==0) {
 		 	// Always monitor the first requested pv on connect
-			isHeartbeat = 1;
 	 		connected_iocs ++;
 			pH->setAddr(args.chid);
 			ca_set_puser(args.chid,pH);
@@ -1011,7 +1077,9 @@ fprintf(stdout,"ca_clear_channel completed\n"); fflush(stdout);
 		// Don't want monitors on anything except heartbeats.
 		if( !isHeartbeat) {
 			int chid_status = ca_state(args.chid);
+/*
 			fprintf(stdout, "4. chid_status: %d name: %s\n", chid_status, pvNameStr);fflush(stdout);
+*/
 			if(chid_status != 3)
 				ca_clear_channel(args.chid);
 		}
@@ -1091,12 +1159,12 @@ int remove_all_pvs(pHost *pH)
 			delete pNode;
 		}
 		else {
-fprintf(stdout, "heartbeat found while removing pvs %s\n",checkStr); fflush(stdout); fflush(stdout);
+//fprintf(stdout, "heartbeat found while removing pvs %s\n",checkStr); fflush(stdout); fflush(stdout);
 			heartbeat = pNode;
 		}
     }
 	if (heartbeat) {
-fprintf(stdout, "adding heartbeat back into %s\n",hostName); fflush(stdout); fflush(stdout);
+//fprintf(stdout, "adding heartbeat back into %s\n",hostName); fflush(stdout); fflush(stdout);
 		// Add heartbeat pv back into pvEList
 		pH->pvEList.add(*heartbeat);
 	}
@@ -1144,5 +1212,30 @@ bool identicalAddress ( struct sockaddr_in ipa1, struct sockaddr_in ipa2 )
         }
     }
     return 0;
+}
+
+#ifdef _WIN32
+char *basename(char *filename)
+{
+   char *pbackslash = strrchr(filename,'\\');
+   char *pslash = strrchr(filename,'/');
+   if (pslash ) return pslash+1;
+   if (pbackslash ) return pbackslash+1;
+   return (char *)filename;
+}
+
+char *dirname(char *filename)
+{
+   char *pslash = strrchr(filename, '/');
+   char *pbackslash = strrchr(filename, '\\');
+   if (pslash ) *pslash = '\0';
+   if (pbackslash ) *pbackslash = '\0';
+   return (char *)filename;
+}
+#endif
+
+char *iocname(int isFilname,char *pPath) {
+ return filenameIsIocname ? \
+	basename((char *)pPath): basename(dirname((char *)pPath));
 }
 
