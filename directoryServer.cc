@@ -496,7 +496,6 @@ void directoryServer::show (unsigned level) const
 int directoryServer::broadcastAllowed (const casCtx& ctx)
 {
 	char hostname[HOST_NAME_SZ];
-	int len,i;
 	char *ptr;
 
 	if (this->bcA==0) return TRUE;
@@ -506,8 +505,8 @@ int directoryServer::broadcastAllowed (const casCtx& ctx)
 
 	// Make the hash name
     pClient->clientHostName(hostname, sizeof(hostname));
-	if (ptr=strchr(hostname,HN_DELIM)) *ptr=0x0;
-	if (ptr=strchr(hostname,HN_DELIM2)) *ptr=0x0;
+	if ((ptr=strchr(hostname,HN_DELIM))) *ptr=0x0;
+	if ((ptr=strchr(hostname,HN_DELIM2))) *ptr=0x0;
 
 fprintf(stdout,"Broadcast requested from host %s \n", hostname);
 	// See if broadcast is allowed for this host
