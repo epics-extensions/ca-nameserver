@@ -74,9 +74,11 @@ extern "C" {
 #define GATE_DENY_FIRST 0
 #define GATE_ALLOW_FIRST 1
 
+#if 0
 // Function prototypes
 void gateAsCa(void);
 void gateAsCaClear(void);
+#endif
 
 class gateVcData;
 class gateAsEntry;
