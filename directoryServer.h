@@ -184,7 +184,7 @@ private:
 */
 class directoryServer : public caServer {
 public:
-	directoryServer (unsigned pvCount);
+	directoryServer (unsigned pvCount,const char* heartbeatPrefix);
 	~directoryServer();
 	void show (unsigned level) const;
 

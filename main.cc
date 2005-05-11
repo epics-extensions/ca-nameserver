@@ -53,9 +53,9 @@ static char *rcsid="$Header$";
 #define NS_PVLIST_FILE  "nameserver.pvlist"
 
 //prototypes
-int parseDirectoryFile (const char *pFileName);
-int parseDirectoryFP (FILE *pf, const char *pFileName, int first, pIoc* pI);
-void start_ca_monitor();
+static int parseDirectoryFile (const char *pFileName);
+static int parseDirectoryFP (FILE *pf, const char *pFileName, int first, pIoc* pI);
+static void start_ca_monitor();
 extern "C" void registerCA(void *pfdctx,int fd,int condition);
 extern void remove_CA_mon(int fd);	//!< CA utility
 extern void add_CA_mon(int fd);		//!< CA utility
@@ -64,13 +64,14 @@ extern "C" void WDprocessChangeConnectionEvent( struct connection_handler_args a
 extern "C" void sig_chld(int);
 extern "C" void kill_the_kid(int);
 extern "C" void sig_dont_dump(int);
-int start_daemon();
-void setup_logging(char *log_file);
-int remove_all_pvs(pIoc *pI);
-int add_all_pvs(pIoc *pI);
+static int start_daemon();
+static void setup_logging(char *log_file);
+static int remove_all_pvs(pIoc *pI);
+static int add_all_pvs(pIoc *pI);
 FILE *reserve_fd_fopen(const char *filename, const char *mode);
 int reserve_fd_fclose(FILE *stream);
-FILE *reserve_fd_openReserveFile(void);
+static FILE *reserve_fd_openReserveFile(void);
+static void print_env(FILE *fp);
 
 // globals
 directoryServer	*pCAS;
@@ -101,13 +102,14 @@ extern int main (int argc, char *argv[])
 {
 	// Runtime option args:
 	unsigned 	debugLevel = 0u;
-	char		*fileName;					//!< default input filename
-	char		*log_file;					//!< default log filename
-	char		*home_dir;					//!< default home directory
+	char		*fileName;					//!< input filename
+	char		*log_file;					//!< log filename
+	char		*home_dir;					//!< home directory
 	char		defaultFileName[] = "pvDirectory.txt";
 	char		defaultLog_file[] = "log.file";
 	char		defaultHome_dir[] = "./";
-	char*		pvlist_file=0;				//!< default pvlist filename
+	char*		pvPrefix = NULL;
+	char*		pvlist_file=0;				//!< broadcast access pvlist filename
 	int			server_mode = 0;				//!< running as a daemon = 1
 	unsigned 	hash_table_size = 0;			//!< user requested size
 	aitBool		forever = aitTrue;
@@ -168,6 +170,15 @@ extern int main (int argc, char *argv[])
 					if(argv[i][0]=='-') parm_error=2;
 					else {
                         home_dir = argv[i];
+					}
+				}
+				break;
+           case 'b':
+				if(++i>=argc) parm_error=1;
+				else {
+					if(argv[i][0]=='-') parm_error=2;
+					else {
+                        pvPrefix = argv[i];
 					}
 				}
 				break;
@@ -377,15 +388,16 @@ extern int main (int argc, char *argv[])
 
 	ansiDate = first;
 	fprintf(stdout,"Start time: %s\n", asctime(&ansiDate.ansi_tm));
+    print_env(stdout);
 	fflush(stdout);
 	fflush(stderr);
 
 	// Initialize the server and hash tables
 	if(hash_table_size) {
-		pCAS = new directoryServer(hash_table_size);
+		pCAS = new directoryServer(hash_table_size,pvPrefix);
 	}
 	else {
-		pCAS = new directoryServer(DEFAULT_HASH_SIZE);
+		pCAS = new directoryServer(DEFAULT_HASH_SIZE,pvPrefix);
 	}
 	if (!pCAS) {
 		return (-1);
@@ -582,7 +594,7 @@ extern int main (int argc, char *argv[])
  *
  * \param log_file - name to use for log file
 */
-void setup_logging(char *log_file)
+static void setup_logging(char *log_file)
 {
 #ifndef _WIN32
 	struct		stat sbuf;			//old logfile info
@@ -624,11 +636,46 @@ void setup_logging(char *log_file)
 	}
 }
 
+/*! \brief print an environmant variable stolen from gateway code!
+ *
+ * \param fp - pointer to an open log file
+ * \param var - environment variable name
+*/
+static void printEnv(FILE *fp, const char *var)
+{
+    if(!fp || !var) return;
+
+    char *value=getenv(var);
+    fprintf(fp,"%s=%s\n", var, value?value:"Not specified");
+}
+
+
+/*! \brief print environment variables
+ *
+ * \param fp - pointer to an open log file
+*/
+static void print_env(FILE *fp)
+{
+   	printEnv(fp,"EPICS_CA_ADDR_LIST");
+   	printEnv(fp,"EPICS_CA_AUTO_ADDR_LIST");
+   	printEnv(fp,"EPICS_CA_SERVER_PORT");
+
+   	printEnv(fp,"EPICS_CAS_BEACON_PERIOD");
+   	printEnv(fp,"EPICS_CAS_BEACON_PORT");
+   	printEnv(fp,"EPICS_CAS_BEACON_ADDR_LIST");
+   	printEnv(fp,"EPICS_CAS_AUTO_BEACON_ADDR_LIST");
+
+   	printEnv(fp,"EPICS_CAS_SERVER_PORT");
+   	printEnv(fp,"EPICS_CAS_INTF_ADDR_LIST");
+   	printEnv(fp,"EPICS_CAS_IGNORE_ADDR_LIST");
+}
+
+
 /*! \brief Fork twice to create a daemon process with no associated terminal
  *
 */
 #ifndef _WIN32
-int start_daemon()
+static int start_daemon()
 {
 	signal(SIGCHLD, sig_chld);
 	switch(fork()) {
@@ -709,7 +756,7 @@ extern "C" void kill_the_kid(int )
  *
  * \param  pFileName - name of the input directory file.
 */
-int parseDirectoryFile (const char *pFileName)
+static int parseDirectoryFile (const char *pFileName)
 {
 
 	FILE	*pf, *pf2;
@@ -756,7 +803,7 @@ int parseDirectoryFile (const char *pFileName)
  * \param pFileName - full path name to the file
  * \param startup_flag - 1=initialization, 0=reconnect
 */
-int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag, pIoc *pIocIn)
+static int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag, pIoc *pIocIn)
 {
 	namenode *pNN;
 	pIoc 	*pIcheck;
@@ -880,7 +927,7 @@ int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag, pIoc *p
 /*! \brief Get ready to monitor channel access signals
  *
 */
-void start_ca_monitor()
+static void start_ca_monitor()
 {
     void *pfdctx;
 
@@ -1159,7 +1206,7 @@ extern "C" void sig_chld(int )
  *
  * \param iocName - name of the IOC
  */
-int remove_all_pvs(pIoc *pI)
+static int remove_all_pvs(pIoc *pI)
 {
 	pvE 	*pve;
 	const char    *pvNameStr;
@@ -1219,7 +1266,7 @@ int remove_all_pvs(pIoc *pI)
  *
  * \param iocName - name of the IOC
  */
-int add_all_pvs(pIoc *pI)
+static int add_all_pvs(pIoc *pI)
 {
 	int count;
 	char *pathToList;
@@ -1312,7 +1359,7 @@ int reserve_fd_fclose(FILE *stream)
     return ret;
 }
 
-FILE *reserve_fd_openReserveFile(void)
+static FILE *reserve_fd_openReserveFile(void)
 {
     reserveFp=::fopen(NS_RESERVE_FILE,"w");
     return reserveFp;

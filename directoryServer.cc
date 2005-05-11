@@ -138,7 +138,7 @@ void pIoc::add( pvE *pve)
  * \param pvCount - size of the pv hashtable
  *
 */
-directoryServer::directoryServer( unsigned pvCount) : 
+directoryServer::directoryServer( unsigned pvCount,const char* heartbeatPrefix) : 
 	caServer()
 {
     assert(self==0);
@@ -381,8 +381,6 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 
 	stat.requests++;
 
-//fprintf(stdout,"pvExistTest for pv %s\n", pPVName); fflush(stdout);
-
 	// strip the requested PV to just the record name, omit the field.
 	strncpy(shortPV, pPVName,PV_NAME_SZ-1);
 
@@ -404,20 +402,15 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 	pve = this->stringResTbl.lookup(id);
 
 	if(pve) {
-//fprintf(stdout,"Found pv in pv hash table. %s\n", shortPV); fflush(stdout);
 		// Found pv in pv hash table. Check to see if ioc is up.
-		if(verbose)
-			fprintf(stdout,"found %s in PV TABLE\n", shortPV);
 		pI = pve->get_pIoc();
 		if(!pI) {
 			if(verbose)
-				fprintf(stdout, "Ioc error\n");
+				fprintf(stdout,"PV found and Ioc error for %s\n",shortPV);
 			stat.ioc_error++;
 			return pverDoesNotExistHere;
 		}
 		else {
-			if(verbose)
-				fprintf(stdout,"Ioc installed. status: %d\n",pI->get_status());
 			if(pI->get_status() == 1) {
 				stat.hit++;
 /*
@@ -429,6 +422,8 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			    printf("ADDR <%s>\n", inet_ntoa(tin.sin_addr));
 */
 
+				if(verbose)
+					fprintf(stdout,"PV found and Ioc up for %s\n",shortPV);
 //printf("ADDR <%s> %s  ", inet_ntoa(((sockaddr_in)pI->getAddr()).sin_addr),shortPV);
 //printf("ADDR <%d> \n", pI->getAddr().sin_port); fflush(stdout);
 				return pvExistReturn (caNetAddr(pI->getAddr()));
@@ -436,28 +431,27 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			}
 			else {
 				stat.ioc_down++;
+				if(verbose)
+					fprintf(stdout,"PV found and Ioc down for %s\n",shortPV);
 				return pverDoesNotExistHere;
 			}
 		}
 	}
 	else if (!pve) {
-		if(verbose)
-			fprintf(stdout, "%s NOT in PV TABLE\n", shortPV);
-		// See if there is already a connection pending
+		// pv not found. See if there is already a connection pending
 	 	tsSLIter<namenode> iter = this->nameList.firstIter();
 		while( iter.valid()) {
 			pNN=iter.pointer();
 			if(!strcmp(pNN->get_name(), shortPV)){
 				stat.pending++;
-				if(verbose)fprintf(stdout,"Connection pending for %s\n", shortPV);
-//fprintf(stdout,"Connection pending for %s\n", shortPV); fflush(stdout);
+				if(verbose)
+					fprintf(stdout,"Connection pending for %s\n", shortPV);
 				return (pverDoesNotExistHere);
 			}
 			iter++;
 		}
 		// Can we broadcast for the requested pv.
         if (this->pgateAs && this->pgateAs->isDenyFromListUsed()) {
-//fprintf(stdout,"Deny from list is used for pv %s\n", shortPV); fflush(stdout);
 			char *ptr;
 			char ioc[HOST_NAME_SZ]="";
 
@@ -468,36 +462,38 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			if ((ptr=strchr(ioc,HN_DELIM2))) *ptr=0x0;
 
 			if (this->pgateAs && !this->pgateAs->findEntry(shortPV,ioc)) {
-//fprintf(stdout,"no entry: Broadcast denied for pv %s\n", shortPV); fflush(stdout);
 				stat.broadcast_denied++;
+				if(verbose)
+					fprintf(stdout,"CA search broadcast denied from host for %s\n", shortPV);
 				return (pverDoesNotExistHere);
 			}
 		} else {
 			if (this->pgateAs && !this->pgateAs->findEntry(shortPV)) {
-//fprintf(stdout,"File exists: Broadcast denied for pv %s\n", shortPV); fflush(stdout);
+				if(verbose)
+					fprintf(stdout,"CA search broadcast denied for %s\n", shortPV);
 				stat.broadcast_denied++;
 				return (pverDoesNotExistHere);
 			}
 		}
 
-//fprintf(stdout,"ca_search_and_connect for pv %s\n", shortPV); fflush(stdout);
+		// Broadcast for the requested pv.
 		status = ca_search_and_connect(shortPV,&chd,processChangeConnectionEvent,0);
 		if (status != ECA_NORMAL) {
-			fprintf(stderr,"ca_search failed on channel name: [%s]\n",shortPV);
+			fprintf(stderr,"CA search failed for %s\n",shortPV);
 			return pverDoesNotExistHere;
 		}
 		else {
 			// Create a node for the linked list of pending connections
 			pNN = new namenode(shortPV, chd, 0);
 			if(pNN == NULL) {
-				fprintf(stderr,"Failed to create namenode %s\n", shortPV);
+				fprintf(stderr,"Failed to create namenode for %s\n", shortPV);
 				return pverDoesNotExistHere;
 			}
 			pNN->set_otime();
 			// Add this pv to the list of pending pv connections 
 			this->addNN(pNN);
 			if(verbose)
-				fprintf(stdout, "broadcasting for %s\n", shortPV);
+				fprintf(stdout, "CA search broadcasting for %s\n", shortPV);
 			stat.broadcast++;
 			return (pverDoesNotExistHere);
 		}
