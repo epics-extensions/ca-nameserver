@@ -116,7 +116,7 @@ pvE *pIoc::get()
 
 /*! \brief Constructor for the directory server
  *
-/*! \brief Add a pve to the ioc's pvEList
+ *! \brief Add a pve to the ioc's pvEList
  *
  * \param pve - a pvE object
  *
