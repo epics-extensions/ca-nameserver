@@ -41,6 +41,8 @@ SYS_PROD_LIBS_solaris := nsl
 SYS_PROD_LIBS_WIN32 := ws2_32 advapi32 user32
 
 SRCS +=main.cc
+SRCS += reserve_fd.cc
+SRCS += nsIO.cc
 SRCS += dirfmgr.cc
 SRCS += directoryServer.cc
 SRCS += gateAs.cc
