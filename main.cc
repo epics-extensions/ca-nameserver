@@ -7,50 +7,27 @@
 */
 static char *rcsid="$Header$";
 
-
-#include <stdio.h>
-#include <string.h>
+//#include <stdio.h>
+//#include <string.h>
 #include <sys/stat.h>
 #ifdef linux
 #include <libgen.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #endif
 #ifdef SOLARIS
 #include <libgen.h>
-#include <sys/wait.h>
 #endif
 
-
-#ifdef _WIN32
-#include <direct.h>
-#include <process.h>
-#define WIN32_MAXSTDIO 2048
-#else
-#include <unistd.h>
-#include <sys/resource.h>
-#endif
-
-#include <time.h>
-
-#if 0
-#include <sys/time.h>
-#include <sys/utsname.h>
-#include "tsSLList.h"
-#endif
-
-#include <envDefs.h>
 #include <fdmgr.h>
 #include <fdManager.h>
 
 #include "directoryServer.h"
+#include "reserve_fd.h"
+#include "nsIO.h"
 
 #ifndef TRUE
 #define TRUE 1
 #endif
-
-#define NS_RESERVE_FILE  "nameserver.reserve"
-#define NS_PVLIST_FILE  "nameserver.pvlist"
 
 //prototypes
 static int parseDirectoryFile (const char *pFileName);
@@ -65,13 +42,9 @@ extern "C" void sig_chld(int);
 extern "C" void kill_the_kid(int);
 extern "C" void sig_dont_dump(int);
 static int start_daemon();
-static void setup_logging(char *log_file);
 static int remove_all_pvs(pIoc *pI);
 static int add_all_pvs(pIoc *pI);
-FILE *reserve_fd_fopen(const char *filename, const char *mode);
-int reserve_fd_fclose(FILE *stream);
-static FILE *reserve_fd_openReserveFile(void);
-static void print_env(FILE *fp);
+static char *iocname(int isFilname,char *pPath);
 
 // globals
 directoryServer	*pCAS;
@@ -91,9 +64,7 @@ int requested_iocs;		//!< count of iocs which we would like to be connected
 int verbose = 0;		//!< verbose mode off = 0, on = 1
 FILE *never_ptr;
 int filenameIsIocname = 0;  //!< Signal list filename is iocname (else basename dirname)
-FILE *reserveFp = NULL;
 
-char *iocname(int isFilname,char *pPath);
 
 /*! \brief Initialization and main loop
  *
@@ -127,20 +98,14 @@ extern int main (int argc, char *argv[])
 	pIoc 		*pI;
 	int 		parm_error=0;
 	int 		i;
-	int c;
-#ifndef WIN32
-    struct rlimit lim;
-#endif
+	int 		c;
 
     fileName = defaultFileName;
     log_file = defaultLog_file;
     home_dir = defaultHome_dir;
 
-//printf ("argc=%d\n",argc);
-
 	// Parse command line args.
 	for (i = 1; i<argc && !parm_error; i++) {
-//printf ("i=%d  argv=%s\n",i,argv[i]);
 		switch(c = argv[i][1]) {
            case 'v':
                 verbose = 1;
@@ -173,7 +138,7 @@ extern int main (int argc, char *argv[])
 					}
 				}
 				break;
-           case 'b':
+           case 'x':
 				if(++i>=argc) parm_error=1;
 				else {
 					if(argv[i][0]=='-') parm_error=2;
@@ -251,144 +216,28 @@ extern int main (int argc, char *argv[])
 	}
 #endif
 
-    // Go to nameserver's home directory now
-    if(home_dir) {
-        if(chdir(home_dir)<0) {
-            perror("Change to home directory failed");
-            fprintf(stderr,"-->Bad home <%s>\n",home_dir); fflush(stderr);
-            return -1;
-        }
+    if ( cd_home_dir(home_dir) == -1) {
+		return -1;
+	}
+
+#ifndef WIN32
+    create_restart_script(home_dir, pvlist_file, log_file, fileName);
+#endif
+    create_killer_script();
+
+    increase_process_limits();
+
+    if(log_file) {
+        setup_logging(log_file);
     }
 
-#ifndef _WIN32
-	// Create the kill and restart scripts
-#define NS_SCRIPT_FILE "nameserver.killer"
-#define NS_RESTART_FILE "nameserver.restart"
-	FILE *fd;
-	if((fd=reserve_fd_fopen(NS_SCRIPT_FILE,"w"))==(FILE*)NULL) {
-        fprintf(stderr,"open of script file %s failed\n", NS_SCRIPT_FILE);
-        fd=stderr;
-    }
-
-	int sid=getpid();
-    fprintf(fd,"\n");
-    fprintf(fd,"# options:\n");
-    fprintf(fd,"# home=<%s>\n",home_dir);
-    if (pvlist_file) fprintf(fd,"# pvlist file=<%s>\n",pvlist_file);
-    fprintf(fd,"# log file=<%s>\n",log_file);
-    fprintf(fd,"# list file=<%s>\n",fileName);
-    fprintf(fd,"# \n");
-    fprintf(fd,"# use the following the get a PV summary report in log:\n");
-    fprintf(fd,"#    kill -USR1 %d\n",sid);
-#ifdef PIOC
-    fprintf(fd,"# use the following to clear PIOC pvs from the nameserver:\n");
-    fprintf(fd,"# \t (valid pvs will automatically reconnect)\n");
-#else
-    fprintf(fd,"# use the following to start a new logfile\n");
-#endif
-    fprintf(fd,"#    kill -USR2 %d\n",sid);
-
-    fprintf(fd,"# \n");
-    //fprintf(fd,"# EPICS_CA_ADDR_LIST=%s\n",getenv("EPICS_CA_ADDR_LIST"));
-    //fprintf(fd,"# EPICS_CA_AUTO_ADDR_LIST=%s\n",getenv("EPICS_CA_AUTO_ADDR_LIST"));
-
-	const char *ptr;
-     ptr = envGetConfigParamPtr(&EPICS_CA_ADDR_LIST);
-     if (ptr != NULL) 
-		fprintf(fd,"# EPICS_CA_ADDR_LIST=%s\n",ptr);
-     else 
-		fprintf(fd,"# EPICS_CA_ADDR_LIST is undefined\n");
-     ptr = envGetConfigParamPtr(&EPICS_CA_AUTO_ADDR_LIST);
-     if (ptr != NULL) 
-		fprintf(fd,"# EPICS_CA_AUTO_ADDR_LIST=%s\n",ptr);
-     else 
-		fprintf(fd,"# EPICS_CA_AUTO_ADDR_LIST is undefined\n");
-
-    fprintf(fd,"\nkill %d # to kill everything\n\n",parent_pid);
-    fprintf(fd,"\n# kill %d # to kill off this server\n\n",sid);
-    fflush(fd);
-
-    if(fd!=stderr) reserve_fd_fclose(fd);
-    chmod(NS_SCRIPT_FILE,00755);
-
-	if((fd=reserve_fd_fopen(NS_RESTART_FILE,"w"))==(FILE*)NULL)
-    {
-        fprintf(stderr,"open of restart file %s failed\n",
-            NS_RESTART_FILE);
-        fd=stderr;
-    }
-    fprintf(fd,"\nkill %d # to kill off this nameserver\n\n",sid);
-    fflush(fd);
-
-    if(fd!=stderr) reserve_fd_fclose(fd);
-    chmod(NS_RESTART_FILE,00755);
-#endif
-
-    // Increase process limits to max
-#ifdef WIN32
-    // Set open file limit (512 by default, 2048 is max)
-#if DEBUG_OPENFILES
-    int maxstdio=_getmaxstdio();
-    printf("Permitted open files: %d\n",maxstdio);
-    printf("\nSetting limits to %d...\n",WIN32_MAXSTDIO);
-#endif
-  // This will fail and not do anything if WIN32_MAXSTDIO > 2048
-    int status=_setmaxstdio(WIN32_MAXSTDIO);
-    if(!status) {
-        printf("Failed to set STDIO limit\n");
-    }
-#if DEBUG_OPENFILES
-    maxstdio=_getmaxstdio();
-    printf("Permitted open files (after): %d\n",maxstdio);
-#endif
-#else  //#ifdef WIN32
-    // Set process limits
-    if(getrlimit(RLIMIT_NOFILE,&lim)<0) {
-        fprintf(stderr,"Cannot retrieve the process FD limits\n");
-    } else  {
-#if DEBUG_OPENFILES
-        printf("RLIMIT_NOFILE (before): rlim_cur=%d rlim_rlim_max=%d "
-          "OPEN_MAX=%d SC_OPEN_MAX=%d FOPEN_MAX=%d\n",
-          lim.rlim_cur,lim.rlim_max,
-          OPEN_MAX,_SC_OPEN_MAX,FOPEN_MAX);
-        printf("  sysconf: _SC_OPEN_MAX %d _SC_STREAM_MAX %d\n",
-          sysconf(_SC_OPEN_MAX), sysconf(_SC_STREAM_MAX));
-#endif
-        if(lim.rlim_cur<lim.rlim_max) {
-            lim.rlim_cur=lim.rlim_max;
-            if(setrlimit(RLIMIT_NOFILE,&lim)<0)
-              fprintf(stderr,"Failed to set FD limit %d\n",
-                (int)lim.rlim_cur);
-        }
-#if DEBUG_OPENFILES
-        if(getrlimit(RLIMIT_NOFILE,&lim)<0) {
-            printf("RLIMIT_NOFILE (after): Failed\n");
-        } else {
-            printf("RLIMIT_NOFILE (after): rlim_cur=%d rlim_rlim_max=%d "
-              "OPEN_MAX=%d SC_OPEN_MAX=%d FOPEN_MAX=%d\n",
-              lim.rlim_cur,lim.rlim_max,
-              OPEN_MAX,_SC_OPEN_MAX,FOPEN_MAX);
-            printf("  sysconf: _SC_OPEN_MAX %d _SC_STREAM_MAX %d\n",
-              sysconf(_SC_OPEN_MAX), sysconf(_SC_STREAM_MAX));
-        }
-#endif
-    }
-
-    if(getrlimit(RLIMIT_CORE,&lim)<0) {
-        fprintf(stderr,"Cannot retrieve the process FD limits\n");
-    }
-#endif
 
 	//time  in  seconds since 00:00:00 UTC, January 1, 1970.
 	first = epicsTime::getCurrent ();
 
-	if(logging_to_file) {
-		setup_logging(log_file);
-	}
-
 	ansiDate = first;
 	fprintf(stdout,"Start time: %s\n", asctime(&ansiDate.ansi_tm));
-    print_env(stdout);
+    print_env_vars(stdout);
 	fflush(stdout);
 	fflush(stderr);
 
@@ -403,6 +252,8 @@ extern int main (int argc, char *argv[])
 		return (-1);
 	}
 
+	pCAS->setDebugLevel(debugLevel);
+
 	// Setup broadcast access security
 	if (pvlist_file) pCAS->pgateAs = new gateAs(pvlist_file);
 
@@ -412,13 +263,10 @@ extern int main (int argc, char *argv[])
 	outta_here = 0;
 	start_new_log = 0;
 
-
 	// Read the signal lists and fill the hash tables
 	pv_count = parseDirectoryFile (fileName);
 
 	fprintf(stdout, "Total PVs in signal lists: %d\n", pv_count);
-
-	pCAS->setDebugLevel(debugLevel);
 
 	// Get startup timing information.
 	second = epicsTime::getCurrent ();
@@ -588,86 +436,6 @@ extern int main (int argc, char *argv[])
 	pCAS->show(2u);
 	delete pCAS;
 	return (0);
-}
-
-/*! \brief logging code shamelessly stolen from gateway code!
- *
- * \param log_file - name to use for log file
-*/
-static void setup_logging(char *log_file)
-{
-#ifndef _WIN32
-	struct		stat sbuf;			//old logfile info
-	char 		cur_time[200];
-	time_t t;
-
-	// Save log file if it exists
-	if(stat(log_file, &sbuf) == 0) {
-		if(sbuf.st_size > 0) {
-			time(&t);
-			sprintf(cur_time,"%s.%lu",log_file,(unsigned long)t);
-			if(link(log_file,cur_time)<0) {
-				fprintf(stderr,"Failure to move old log to new name %s",
-					cur_time);
-			}
-			else{
-				unlink(log_file);
-			}
-		}
-	}
-#endif
-	// Redirect stdout and stderr
-	// Open it and close it to empty it (Necessary on WIN32,
-	// apparently not necessary on Solaris)
-	FILE *fp=fopen(log_file,"w");
-	if(fp == NULL) {
-		fprintf(stderr,"Cannot open %s\n",log_file);
-		fflush(stderr);
-	} else {
-		fclose(fp);
-	}
-	if( (freopen(log_file,"a",stderr))==NULL ) {
-		fprintf(stderr,"Redirect of stderr to file %s failed\n",log_file);
-			fflush(stderr);
-	}
-	if( (freopen(log_file,"a",stdout))==NULL ) {
-		fprintf(stderr,"Redirect of stdout to file %s failed\n",log_file);
-		fflush(stderr);
-	}
-}
-
-/*! \brief print an environmant variable stolen from gateway code!
- *
- * \param fp - pointer to an open log file
- * \param var - environment variable name
-*/
-static void printEnv(FILE *fp, const char *var)
-{
-    if(!fp || !var) return;
-
-    char *value=getenv(var);
-    fprintf(fp,"%s=%s\n", var, value?value:"Not specified");
-}
-
-
-/*! \brief print environment variables
- *
- * \param fp - pointer to an open log file
-*/
-static void print_env(FILE *fp)
-{
-   	printEnv(fp,"EPICS_CA_ADDR_LIST");
-   	printEnv(fp,"EPICS_CA_AUTO_ADDR_LIST");
-   	printEnv(fp,"EPICS_CA_SERVER_PORT");
-
-   	printEnv(fp,"EPICS_CAS_BEACON_PERIOD");
-   	printEnv(fp,"EPICS_CAS_BEACON_PORT");
-   	printEnv(fp,"EPICS_CAS_BEACON_ADDR_LIST");
-   	printEnv(fp,"EPICS_CAS_AUTO_BEACON_ADDR_LIST");
-
-   	printEnv(fp,"EPICS_CAS_SERVER_PORT");
-   	printEnv(fp,"EPICS_CAS_INTF_ADDR_LIST");
-   	printEnv(fp,"EPICS_CAS_IGNORE_ADDR_LIST");
 }
 
 
@@ -1231,7 +999,7 @@ static int remove_all_pvs(pIoc *pI)
     }
 
     // get removes first item from list
-    while ( pve = pI->get()) {
+    while ( (pve = pI->get()) ) {
 		pvNameStr = pve->get_name();
 //fprintf(stdout,"Removing %s \n", pvNameStr); fflush(stdout);
 		if ( removeAll || strcmp(checkStr,pvNameStr)) {
@@ -1322,46 +1090,8 @@ char *dirname(char *filename)
 }
 #endif
 
-char *iocname(int isFilname,char *pPath) {
+static char *iocname(int isFilname,char *pPath) {
  return filenameIsIocname ? \
 	basename((char *)pPath): basename(dirname((char *)pPath));
-}
-
-// Functions to try to reserve a file descriptor to use for fopen.  On
-// Solaris, at least, fopen is limited to FDs < 256.  These could all
-// be used by CA and CAS sockets if there are connections to enough
-// IOCs  These functions try to reserve a FD < 256.
-FILE *reserve_fd_fopen(const char *filename, const char *mode)
-{
-    // Close the dummy file holding the FD open
-    if(reserveFp) ::fclose(reserveFp);
-    reserveFp=NULL;
-
-    // Open the file.  It should use the lowest available FD, that is,
-    // the one we just made available.
-    FILE *fp=::fopen(filename,mode);
-    if(!fp) {
-        // Try to get the reserved one back
-        reserveFp=::fopen(NS_RESERVE_FILE,"w");
-    }
-
-    return fp;
-}
-
-int reserve_fd_fclose(FILE *stream)
-{
-    // Close the file
-    int ret=::fclose(stream);
-
-    // Open the dummy file to reserve the FD just made available
-    reserveFp=::fopen(NS_RESERVE_FILE,"w");
-
-    return ret;
-}
-
-static FILE *reserve_fd_openReserveFile(void)
-{
-    reserveFp=::fopen(NS_RESERVE_FILE,"w");
-    return reserveFp;
 }
 
