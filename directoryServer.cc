@@ -501,9 +501,14 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 	return (pverDoesNotExistHere);
 }
 
+
+void directoryServer::setDebugLevel ( unsigned level )
+{
+	this->caServer::setDebugLevel ( level );
+}
+
+
 /*! \brief Write status summary to the logfile
- *
- *
 */
 void directoryServer::show (unsigned level) const
 {

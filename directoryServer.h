@@ -182,7 +182,7 @@ private:
 
 /*! \brief directory server class
 */
-class directoryServer : public caServer {
+class directoryServer : private caServer {
 public:
 	directoryServer (unsigned pvCount,const char* heartbeatPrefix);
 	~directoryServer();
@@ -200,6 +200,7 @@ public:
 	resTable<pIoc,stringId> iocResTbl;	//!< hash of installed ioc's 
 	resTable<pvE,stringId> stringResTbl;	//!< hash of installed pv's
 	resTable<never,stringId> neverResTbl;	//!< hash of never connected pv's
+	void setDebugLevel ( unsigned level );
     gateAs *pgateAs;
 private:
 	static void sigusr1(int); 
