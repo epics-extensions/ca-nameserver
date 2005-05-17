@@ -40,12 +40,15 @@ gdd_DIR = $(EPICS_BASE_LIB)
 SYS_PROD_LIBS_solaris := nsl
 SYS_PROD_LIBS_WIN32 := ws2_32 advapi32 user32
 
-SRCS +=main.cc
-SRCS += reserve_fd.cc
-SRCS += nsIO.cc
-SRCS += dirfmgr.cc
 SRCS += directoryServer.cc
+SRCS += dirfmgr.cc
 SRCS += gateAs.cc
+SRCS += main.cc
+SRCS += nsIO.cc
+SRCS += nsPV.cc
+SRCS += nsScalarPV.cc
+SRCS += pvServer.cc
+SRCS += reserve_fd.cc
 
 PROD_HOST = caDirServ
 

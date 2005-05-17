@@ -37,9 +37,9 @@ int cd_home_dir(const char* const home_dir)
     return 0;
 }
 
-/*! \brief Create file containing a restart script
+/*! \brief Create file containing a killer script
 */
-void create_restart_script(const char* const home_dir,const char* const pvlist_file,const char* const log_file,const char* const fileName)
+void create_killer_script(pid_t parent_pid,const char* const home_dir,const char* const pvlist_file,const char* const log_file,const char* const fileName)
 {
 	FILE *fd;
 	if((fd=reserve_fd_fopen(NS_SCRIPT_FILE,"w"))==(FILE*)NULL) {
@@ -66,24 +66,10 @@ void create_restart_script(const char* const home_dir,const char* const pvlist_f
     fprintf(fd,"#    kill -USR2 %d\n",sid);
 
     fprintf(fd,"# \n");
-	print_env_vars(fd);
-//    //fprintf(fd,"# EPICS_CA_ADDR_LIST=%s\n",getenv("EPICS_CA_ADDR_LIST"));
-//    //fprintf(fd,"# EPICS_CA_AUTO_ADDR_LIST=%s\n",getenv("EPICS_CA_AUTO_ADDR_LIST"));
-//
-//	const char *ptr;
-//     ptr = envGetConfigParamPtr(&EPICS_CA_ADDR_LIST);
-//     if (ptr != NULL) 
-//		fprintf(fd,"# EPICS_CA_ADDR_LIST=%s\n",ptr);
-//     else 
-//		fprintf(fd,"# EPICS_CA_ADDR_LIST is undefined\n");
-//     ptr = envGetConfigParamPtr(&EPICS_CA_AUTO_ADDR_LIST);
-//     if (ptr != NULL) 
-//		fprintf(fd,"# EPICS_CA_AUTO_ADDR_LIST=%s\n",ptr);
-//     else 
-//	fprintf(fd,"# EPICS_CA_AUTO_ADDR_LIST is undefined\n");
-//
-//    fprintf(fd,"\nkill %d # to kill everything\n\n",parent_pid);
-//    fprintf(fd,"\n# kill %d # to kill off this server\n\n",sid);
+    //fprintf(fd,"# EPICS_CA_ADDR_LIST=%s\n",getenv("EPICS_CA_ADDR_LIST"));
+    //fprintf(fd,"# EPICS_CA_AUTO_ADDR_LIST=%s\n",getenv("EPICS_CA_AUTO_ADDR_LIST"));
+    fprintf(fd,"\nkill %d # to kill everything\n\n",parent_pid);
+    fprintf(fd,"\n# kill %d # to kill off this server\n\n",sid);
     fflush(fd);
 
     if(fd!=stderr) reserve_fd_fclose(fd);
@@ -91,9 +77,9 @@ void create_restart_script(const char* const home_dir,const char* const pvlist_f
 }
 
 
-/*! \brief Create file containing a kill script
+/*! \brief Create file containing a restart script
 */
-void create_killer_script()
+void create_restart_script()
 {
 	FILE *fd;
 	if((fd=reserve_fd_fopen(NS_RESTART_FILE,"w"))==(FILE*)NULL)

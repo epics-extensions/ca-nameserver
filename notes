@@ -54,3 +54,8 @@ Tue May 10 10:33:33 CDT 2005
 	Print ca and cas environment variables to log file at startup.
 	Add "static" to appropriate routines.
 	Added pvPrefix to command line args (not used yet)
+
+Tue May 17 15:34:25 CDT 2005
+	Added nameserver pvs - heartbeat, pvExistTest statistics (hit,broadcast,
+	pending, broadcast_denied. ioc_down, ioc_error)
+

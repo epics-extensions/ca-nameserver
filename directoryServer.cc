@@ -8,12 +8,12 @@
 
 static char *rcsid="$Header$";
 
+#include <casdef.h>
+
 #include "directoryServer.h"
 #ifdef linux
 #include <time.h>
 #endif
-
-#include <casdef.h>
 
 #ifndef FALSE
 #define FALSE 0
@@ -32,15 +32,7 @@ extern int requested_iocs;
 extern int verbose;
 extern FILE *never_ptr;
 
-static struct {
-	double requests;
-	double broadcast;
-	double broadcast_denied;
-	double pending;
-	double ioc_error;
-	double hit;
-	double ioc_down;
-}stat;
+struct nsStats stats = { 0.0,0.0,0.0,0.0,0.0,0.0,0.0 };
 
 extern "C" void processChangeConnectionEvent( struct connection_handler_args args);
 
@@ -138,8 +130,8 @@ void pIoc::add( pvE *pve)
  * \param pvCount - size of the pv hashtable
  *
 */
-directoryServer::directoryServer( unsigned pvCount,const char* heartbeatPrefix) : 
-	caServer()
+directoryServer::directoryServer( unsigned pvCount,const char* const pvPrefix) :
+  pvServer(pvPrefix)
 {
     assert(self==0);
 	self = this;
@@ -153,13 +145,13 @@ directoryServer::directoryServer( unsigned pvCount,const char* heartbeatPrefix) 
 	this->iocResTbl.setTableSize(MAX_IOCS);
 	this->neverResTbl.setTableSize(pvCount);
 
-	stat.requests = 0;
-	stat.broadcast = 0;
-	stat.broadcast_denied = 0;
-	stat.pending = 0;
-	stat.ioc_error = 0;
-	stat.ioc_down = 0;
-	stat.hit = 0;
+	stats.request = 0;
+	stats.broadcast = 0;
+	stats.broadcast_denied = 0;
+	stats.pending = 0;
+	stats.ioc_error = 0;
+	stats.ioc_down = 0;
+	stats.hit = 0;
 
     pgateAs  = 0;
 }
@@ -216,6 +208,9 @@ directoryServer::~directoryServer()
     tsSLList < never > tmpNeverList;
 
 	ca_context_destroy();
+
+    this->pvServer::~pvServer();
+
 	// removeAll() puts entries on a tmpList.
 	// and then traverses list deleting each entry
 	this->iocResTbl.removeAll(tmpIocList);
@@ -348,7 +343,7 @@ int directoryServer::installPVName( const char *pName, pIoc *pI)
 
 pvExistReturn directoryServer::pvExistTest(const casCtx& ctx, const char *pvName)
 {
-    return pverDoesNotExistHere;
+	return pverDoesNotExistHere;
 }
 
 /*! \brief Handle client broadcasts
@@ -378,8 +373,10 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 	namenode	*pNN;
 	chid		chd;	
 	int 		i, len, status;
+    pvExistReturn pvReturn;
 
-	stat.requests++;
+//fprintf(stdout, "directoryServer:pvExistTest name=%s\n",pPVName); fflush(stdout);
+	stats.request++;
 
 	// strip the requested PV to just the record name, omit the field.
 	strncpy(shortPV, pPVName,PV_NAME_SZ-1);
@@ -397,7 +394,6 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 		return pverDoesNotExistHere;
 	}
 
-
 	stringId id(shortPV, stringId::refString);
 	pve = this->stringResTbl.lookup(id);
 
@@ -407,12 +403,12 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 		if(!pI) {
 			if(verbose)
 				fprintf(stdout,"PV found and Ioc error for %s\n",shortPV);
-			stat.ioc_error++;
+			stats.ioc_error++;
 			return pverDoesNotExistHere;
 		}
 		else {
 			if(pI->get_status() == 1) {
-				stat.hit++;
+				stats.hit++;
 /*
 				sockaddr_in tin = pI->getAddr();
 				printf("f: %d p: %d a: %d\n",
@@ -430,7 +426,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 	
 			}
 			else {
-				stat.ioc_down++;
+				stats.ioc_down++;
 				if(verbose)
 					fprintf(stdout,"PV found and Ioc down for %s\n",shortPV);
 				return pverDoesNotExistHere;
@@ -438,12 +434,23 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 		}
 	}
 	else if (!pve) {
+
+		// See if pv is a nameserver pv.
+//fprintf(stdout,"=====Calling pvServer::pvExistTest\n"); fflush(stdout);
+		pvReturn = this->pvServer::pvExistTest (ctx,pPVName);
+		if(pvReturn.getStatus() == pverExistsHere){
+			stats.hit++;
+			if(verbose)
+				fprintf(stdout,"Nameserver PV found for %s\n",pPVName);
+			return pverExistsHere;
+		}
+
 		// pv not found. See if there is already a connection pending
 	 	tsSLIter<namenode> iter = this->nameList.firstIter();
 		while( iter.valid()) {
 			pNN=iter.pointer();
 			if(!strcmp(pNN->get_name(), shortPV)){
-				stat.pending++;
+				stats.pending++;
 				if(verbose)
 					fprintf(stdout,"Connection pending for %s\n", shortPV);
 				return (pverDoesNotExistHere);
@@ -462,7 +469,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			if ((ptr=strchr(ioc,HN_DELIM2))) *ptr=0x0;
 
 			if (this->pgateAs && !this->pgateAs->findEntry(shortPV,ioc)) {
-				stat.broadcast_denied++;
+				stats.broadcast_denied++;
 				if(verbose)
 					fprintf(stdout,"CA search broadcast denied from host for %s\n", shortPV);
 				return (pverDoesNotExistHere);
@@ -471,7 +478,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			if (this->pgateAs && !this->pgateAs->findEntry(shortPV)) {
 				if(verbose)
 					fprintf(stdout,"CA search broadcast denied for %s\n", shortPV);
-				stat.broadcast_denied++;
+				stats.broadcast_denied++;
 				return (pverDoesNotExistHere);
 			}
 		}
@@ -494,7 +501,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			this->addNN(pNN);
 			if(verbose)
 				fprintf(stdout, "CA search broadcasting for %s\n", shortPV);
-			stat.broadcast++;
+			stats.broadcast++;
 			return (pverDoesNotExistHere);
 		}
 	}
@@ -504,7 +511,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 
 void directoryServer::setDebugLevel ( unsigned level )
 {
-	this->caServer::setDebugLevel ( level );
+//	this->caServer::setDebugLevel ( level );
 }
 
 
@@ -520,6 +527,8 @@ void directoryServer::show (unsigned level) const
 
 	static epicsTime	last_time = first;
 	
+    this->pvServer::show(level);
+
 	fprintf(stdout,"Diag time: %s\n", asctime(&ansiDate.ansi_tm));
 	fprintf(stdout, "PV Hash Table:\n");
 	this->stringResTbl.show(level);
@@ -560,35 +569,47 @@ void directoryServer::show (unsigned level) const
 */
 	if(last_time != first) {
 		double hours = (double)(first - last_time)/60.0/60.0;
-		fprintf(stdout,"\nRequests: \t%10.0f (%9.2f/hour)\n", stat.requests, stat.requests/hours);
-		fprintf(stdout,"\nHits: \t\t%10.0f (%9.2f/hour)\n", stat.hit, stat.hit/hours);
-		fprintf(stdout,"Broadcasts: \t%10.0f (%9.2f/hour)\n", stat.broadcast, stat.broadcast/hours);
-		fprintf(stdout,"Broadcasts_denied:  %10.0f (%9.2f/hour)\n", stat.broadcast_denied, stat.broadcast_denied/hours);
-		fprintf(stdout,"Ioc: \t%10.0f (%9.2f/hour)\n", stat.ioc_error, stat.ioc_error/hours);
-		fprintf(stdout,"Pending: \t%10.0f (%9.2f/hour)\n", stat.pending, stat.pending/hours);
-		fprintf(stdout,"Ioc_down: \t%10.0f (%9.2f/hour)\n", stat.ioc_down, stat.ioc_down/hours);
+		fprintf(stdout,"\nRequests: \t%10.0f (%9.2f/hour)\n", stats.request, stats.request/hours);
+		fprintf(stdout,"\nHits: \t\t%10.0f (%9.2f/hour)\n", stats.hit, stats.hit/hours);
+		fprintf(stdout,"Broadcasts: \t%10.0f (%9.2f/hour)\n", stats.broadcast, stats.broadcast/hours);
+		fprintf(stdout,"Broadcasts_denied:  %10.0f (%9.2f/hour)\n", stats.broadcast_denied, stats.broadcast_denied/hours);
+		fprintf(stdout,"Ioc: \t%10.0f (%9.2f/hour)\n", stats.ioc_error, stats.ioc_error/hours);
+		fprintf(stdout,"Pending: \t%10.0f (%9.2f/hour)\n", stats.pending, stats.pending/hours);
+		fprintf(stdout,"Ioc_down: \t%10.0f (%9.2f/hour)\n", stats.ioc_down, stats.ioc_down/hours);
 		fprintf(stdout,"    in %f seconds (%3.2f hours) \n", first - last_time, hours);
 	}
 	else {
-		fprintf(stdout,"\nRequests: %f\n", stat.requests);
-		fprintf(stdout,"\nHits: %f\n", stat.hit);
-		fprintf(stdout,"Broadcasts: %f\n", stat.broadcast);
-		fprintf(stdout,"Broadcasts_denied: %f\n", stat.broadcast_denied);
-		fprintf(stdout,"Ioc_error: %f\n", stat.ioc_error);
-		fprintf(stdout,"Pending: %f\n", stat.pending);
-		fprintf(stdout,"Ioc_down: %f\n", stat.ioc_down);
+		fprintf(stdout,"\nRequests: %f\n", stats.request);
+		fprintf(stdout,"\nHits: %f\n", stats.hit);
+		fprintf(stdout,"Broadcasts: %f\n", stats.broadcast);
+		fprintf(stdout,"Broadcasts_denied: %f\n", stats.broadcast_denied);
+		fprintf(stdout,"Ioc_error: %f\n", stats.ioc_error);
+		fprintf(stdout,"Pending: %f\n", stats.pending);
+		fprintf(stdout,"Ioc_down: %f\n", stats.ioc_down);
 		fprintf(stdout,"    since startup\n");
 	}
 	fprintf(stdout, "\n**********End diagnostics\n\n");
 	fflush(stdout);
 
-	stat.broadcast = 0;
-	stat.broadcast_denied = 0;
-	stat.pending = 0;
-	stat.ioc_error = 0;
-	stat.hit = 0;
-	stat.ioc_down = 0;
-	stat.requests = 0;
+	stats.broadcast = 0;
+	stats.broadcast_denied = 0;
+	stats.pending = 0;
+	stats.ioc_error = 0;
+	stats.hit = 0;
+	stats.ioc_down = 0;
+	stats.request = 0;
 	last_time = first;
 }
+
+
+//
+// directoryServer::directoryAttach()
+//
+pvAttachReturn directoryServer::pvAttach
+    (const casCtx &ctx, const char *pName)
+{
+    return this->pvServer::pvAttach(ctx,pName);
+}
+
+
 

@@ -49,8 +49,8 @@ static char *iocname(int isFilname,char *pPath);
 // globals
 directoryServer	*pCAS;
 #ifndef _WIN32
-pid_t child_pid;		//!< pid of the child process
-pid_t parent_pid;		//!< pid of the parent process
+pid_t child_pid =0;		//!< pid of the child process
+pid_t parent_pid =0;		//!< pid of the parent process
 #endif
 int outta_here;			//!< flag indicating kill signal has been received
 int start_new_log;		//!< flag indicating user wants to start a new log
@@ -221,9 +221,9 @@ extern int main (int argc, char *argv[])
 	}
 
 #ifndef WIN32
-    create_restart_script(home_dir, pvlist_file, log_file, fileName);
+    create_killer_script(parent_pid, home_dir, pvlist_file, log_file, fileName);
 #endif
-    create_killer_script();
+    create_restart_script();
 
     increase_process_limits();
 
@@ -252,7 +252,7 @@ extern int main (int argc, char *argv[])
 		return (-1);
 	}
 
-	pCAS->setDebugLevel(debugLevel);
+	//pCAS->setDebugLevel(debugLevel);
 
 	// Setup broadcast access security
 	if (pvlist_file) pCAS->pgateAs = new gateAs(pvlist_file);

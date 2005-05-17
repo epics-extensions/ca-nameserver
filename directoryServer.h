@@ -18,6 +18,8 @@
 #include "epicsTime.h"
 #include "gateAs.h"
 
+#include "pvServer.h"
+
 // *** SITE SPECIFIC MODIFICATIONS TO BE EDITED  ***
 // If ca_host_name(chid) returns iocname.jlab.acc.org:5064, set the
 // delimiter to '.'. If the return is iocname:5064, set it to ':'.
@@ -182,11 +184,13 @@ private:
 
 /*! \brief directory server class
 */
-class directoryServer : private caServer {
+//class directoryServer : private pvServer, private caServer {
+class directoryServer : private pvServer {
 public:
-	directoryServer (unsigned pvCount,const char* heartbeatPrefix);
+	directoryServer (unsigned pvCount,const char* const pvPrefix);
 	~directoryServer();
 	void show (unsigned level) const;
+	void setDebugLevel ( unsigned level );
 
 	int installPVName (const char *pvname, pIoc *pIocName);
 	pIoc* installIocName ( const char *pIocName, const char *pPath);
@@ -200,13 +204,12 @@ public:
 	resTable<pIoc,stringId> iocResTbl;	//!< hash of installed ioc's 
 	resTable<pvE,stringId> stringResTbl;	//!< hash of installed pv's
 	resTable<never,stringId> neverResTbl;	//!< hash of never connected pv's
-	void setDebugLevel ( unsigned level );
     gateAs *pgateAs;
 private:
 	static void sigusr1(int); 
 	pvExistReturn pvExistTest (const casCtx&, const char *pPVName );
-	pvExistReturn pvExistTest (const casCtx&, const caNetAddr &, const char *pPVName );
-
+	pvExistReturn pvExistTest (const casCtx&, const caNetAddr&, const char *pPVName );
+	pvAttachReturn pvAttach (const casCtx&, const char *pPVName );
 };
 
 /*! \brief pIoc remove and delete
