@@ -18,7 +18,9 @@
 #     -s ....................use server mode 
 #     -h nnn ..............set hashtable size (default = 300,000) 
 #     -v ....................verbose mode 
-#     -n ....................host name (iocname) is name of signal list file
+#     -n ....................iocname is name of signal list file (default: iocname is dirname)
+#     -x prefix .............pvPrefix for nameserver heartbeat and other pvs
+#     -p filename ......modify the name of the default pv broadcast list "pvList.txt" 
 # 
 # Included with the distributed code is the file "start_nameserver". This script sets environmental
 # variables and executes the nameserver process with standard arguments. 
