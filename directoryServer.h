@@ -100,7 +100,9 @@ public:
 	filewait( pIoc * pIocIn, int sizeIn) : pI(pIocIn)
 	{
 		this->size = sizeIn;
+		this->read_tries = 0;
 	}
+	int read_tries;
 	int get_size() {return size;}
 	pIoc *get_pIoc() 	{ return pI; }
 	void set_size(int sizeIn) {this->size = sizeIn;}

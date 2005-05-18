@@ -59,3 +59,6 @@ Tue May 17 15:34:25 CDT 2005
 	Added nameserver pvs - heartbeat, pvExistTest statistics (hit,broadcast,
 	pending, broadcast_denied. ioc_down, ioc_error)
 
+Wed May 18 16:03:11 CDT 2005
+	Try reading pvlist file 3 times before giving up to avoid getting
+    "Stale NFS file handle" messages.
