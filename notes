@@ -66,3 +66,5 @@ Wed May 18 16:03:11 CDT 2005
 Thu May 19 10:04:16 CDT 2005
 	Implemented setDebugLevel() and generateBeaconAnomaly().
 	Call generateBeaconAnomaly() after add_all_pvs() on ioc reboot.
+	Added if verbose to fprintf stmnt which preceed setup_logging.
+

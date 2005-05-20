@@ -153,7 +153,7 @@ extern int main (int argc, char *argv[])
 					if(argv[i][0]=='-') parm_error=2;
 					else {
                         log_file = argv[i];
-						fprintf(stdout,"logging to file: %s\n",log_file);
+						if (verbose) fprintf(stdout,"logging to file: %s\n",log_file);
 						logging_to_file = 1;
 					}
 				}
@@ -164,7 +164,7 @@ extern int main (int argc, char *argv[])
 					if(argv[i][0]=='-') parm_error=2;
 					else {
 						pvlist_file=argv[i];
-                		fprintf(stdout,"pvlist file: %s\n",pvlist_file);
+                		if (verbose) fprintf(stdout,"pvlist file: %s\n",pvlist_file);
 					}
 				}
 				break;
@@ -205,7 +205,7 @@ extern int main (int argc, char *argv[])
 
 #ifndef _WIN32
 	if(server_mode) {
-		fprintf(stdout, "Starting daemon\n");
+		if (verbose) fprintf(stdout, "Starting daemon\n");
 		daemon_status = start_daemon();
 		if(daemon_status) {
 			exit(0);
