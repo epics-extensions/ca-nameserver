@@ -172,10 +172,18 @@ pvAttachReturn pvServer::pvAttach // X aCC 361
 //
 // pvServer::setDebugLevel ()
 //
-//void pvServer::setDebugLevel ( unsigned level )
-//{
-//    this->caServer::setDebugLevel ( level );
-//}
+void pvServer::setDebugLevel ( unsigned level )
+{
+    this->caServer::setDebugLevel ( level );
+}
+
+//
+// pvServer::generateBeaconAnomaly ()
+//
+void pvServer::generateBeaconAnomaly ()
+{
+    this->caServer::generateBeaconAnomaly ();
+}
 
 //
 // pvServer::createTimer ()

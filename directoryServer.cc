@@ -511,7 +511,13 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 
 void directoryServer::setDebugLevel ( unsigned level )
 {
-//	this->caServer::setDebugLevel ( level );
+	this->pvServer::setDebugLevel ( level );
+}
+
+
+void directoryServer:: generateBeaconAnomaly ()
+{
+	this->pvServer::generateBeaconAnomaly ();
 }
 
 

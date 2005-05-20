@@ -248,7 +248,8 @@ public:
     void removeName ( pvEntry & entry );
 
     class epicsTimer & createTimer ();
-//	void setDebugLevel ( unsigned level );
+	void setDebugLevel ( unsigned level );
+	void generateBeaconAnomaly ();
 
 protected:
     pvExistReturn pvExistTest ( const casCtx &, 

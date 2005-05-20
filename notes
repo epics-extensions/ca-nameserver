@@ -62,3 +62,7 @@ Tue May 17 15:34:25 CDT 2005
 Wed May 18 16:03:11 CDT 2005
 	Try reading pvlist file 3 times before giving up to avoid getting
     "Stale NFS file handle" messages.
+
+Thu May 19 10:04:16 CDT 2005
+	Implemented setDebugLevel() and generateBeaconAnomaly().
+	Call generateBeaconAnomaly() after add_all_pvs() on ioc reboot.

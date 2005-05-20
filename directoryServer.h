@@ -186,13 +186,13 @@ private:
 
 /*! \brief directory server class
 */
-//class directoryServer : private pvServer, private caServer {
 class directoryServer : private pvServer {
 public:
 	directoryServer (unsigned pvCount,const char* const pvPrefix);
 	~directoryServer();
 	void show (unsigned level) const;
 	void setDebugLevel ( unsigned level );
+	void generateBeaconAnomaly ();
 
 	int installPVName (const char *pvname, pIoc *pIocName);
 	pIoc* installIocName ( const char *pIocName, const char *pPath);

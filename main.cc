@@ -99,7 +99,6 @@ extern int main (int argc, char *argv[])
 	int 		parm_error=0;
 	int 		i;
 	int 		c;
-	int			status;
 
     fileName = defaultFileName;
     log_file = defaultLog_file;
@@ -232,7 +231,6 @@ extern int main (int argc, char *argv[])
         setup_logging(log_file);
     }
 
-
 	//time  in  seconds since 00:00:00 UTC, January 1, 1970.
 	first = epicsTime::getCurrent ();
 
@@ -318,8 +316,9 @@ extern int main (int argc, char *argv[])
 						if((sbuf.st_size == size) && (size != 0)) {
 							//printf("SIZE EQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
 							remove_all_pvs(pFW->get_pIoc());
-							status = add_all_pvs(pFW->get_pIoc()); 
-							if (status >= 0 || pFW->read_tries >2 ) {
+							pv_count = add_all_pvs(pFW->get_pIoc()); 
+							if (pv_count >= 0 || pFW->read_tries >2 ) {
+								if (pv_count > 0) pCAS->generateBeaconAnomaly();
                             	if(pprevFW) pCAS->fileList.remove(*pprevFW);
 								else pCAS->fileList.get();
 								delete pFW;
