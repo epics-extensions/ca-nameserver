@@ -850,30 +850,47 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 	int 	removed = 0;
 	char iocname[HOST_NAME_SZ];
 	ca_get_host_name(args.chid,iocname,HOST_NAME_SZ);
+	pvE 	*pve;
+
+    // We want to monitor all learned pvs because they may be from gateways
+	int    monitorAll=1;
 
 	if (args.op == CA_OP_CONN_DOWN) {
-		connected_iocs --;
 
-		pI = ( pIoc * ) ca_puser( args.chid );
-		if(pI) {
-			pI->set_status(2);
-			fprintf(stdout,"CONN DOWN for %s\n", pI->get_iocname()); fflush(stdout);
-			// Remove all pvs now
-			// On reconnect this ioc may have a different port
-			removed = remove_all_pvs(pI);
-			pI= pCAS->iocResTbl.remove(*pI);
-			if(pI) delete pI;
-		}
-		else {
-			fprintf(stderr,"CONN DOWN ERROR: IOC %s NOT INSTALLED \n", iocname);
-			fflush(stderr);
+		if (monitorAll) {
+			strncpy (pvNameStr, ca_name(args.chid),PV_NAME_SZ-1);
+			stringId id2(pvNameStr, stringId::refString);
+			pve = pCAS->stringResTbl.remove(id2);
+			if(pve) {
+				delete pve;
+			}
+			else {
+				fprintf(stderr,"failed to remove %s\n", pvNameStr);fflush(stderr);
+			}
+		} else {
+			connected_iocs --;
+			pI = ( pIoc * ) ca_puser( args.chid );
+			if(pI) {
+				pI->set_status(2);
+				fprintf(stdout,"CONN DOWN for %s\n", pI->get_iocname()); fflush(stdout);
+				// Remove all pvs now
+				// On reconnect this ioc may have a different port
+				removed = remove_all_pvs(pI);
+				pI= pCAS->iocResTbl.remove(*pI);
+				if(pI) delete pI;
+	
+			}
+			else {
+				fprintf(stderr,"CONN DOWN ERROR: IOC %s NOT INSTALLED \n", iocname);
+				fflush(stderr);
+			}
 		}
 		ca_clear_channel(args.chid);
 	}
 	else{
 		// Got a response to UDP broadcast for a pv not already in the pv hash table. 
-
 		int isHeartbeat = 0;
+
 
 		stringId id(iocname, stringId::refString);
 		pI = pCAS->iocResTbl.lookup(id);
@@ -903,6 +920,10 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 		if (ptr) *ptr = 0;
 		pCAS->installPVName( pvNameStr, pI);
 
+		// If monitorAll=1 we dont want ioc's pvEList so remove pv
+		// just added by installPVName
+		if (monitorAll && pI) pI->get();	
+
 		// 4.___________________________________________
 		// Always remove this pv from the list of pending conections.
 		{
@@ -931,12 +952,14 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 		pI->set_status(1);
 
 		// 7.___________________________________________
+		// If monitorAll=1 We want a connection handler on ALL pvs
+		// else
 		// Don't want monitors on anything except heartbeats.
-		if( !isHeartbeat) {
+		if( !monitorAll || !isHeartbeat) {
 			int chid_status = ca_state(args.chid);
 			if(chid_status != 3)
 				ca_clear_channel(args.chid);
-		}
+		}	
 	}
 	fflush(stderr);
 	fflush(stdout);
