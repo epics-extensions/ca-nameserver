@@ -73,6 +73,12 @@ pvServer::pvServer ( const char * const pvPrefix )
 //
 pvServer::~pvServer()
 {
+    //printf ("NELEMENTS=%d\n",NELEMENTS(pvServer::pvList));
+    for ( unsigned i = 0;
+            i < NELEMENTS(pvServer::pvList); i++ ) {
+        pvServer::pvList[i].deletePV ();
+    }
+    //printf ("nsResTbl numEntriesInstall=%d\n",nsResTbl.numEntriesInstalled());
     this->nsResTbl.traverse ( &pvEntry::destroy );
 }
 
