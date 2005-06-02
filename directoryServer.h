@@ -112,7 +112,14 @@ private:
 };
 #endif
 
-/*! \brief  Node for ioc linked list of pv's
+
+/*! \brief  Node for an ioc's linked list of pv's
+     Using the pvE was an easy way to avoid copying the pvname
+     strings to an ioc's pvname list (650k pvnames) or creating
+     a seperate pvname class.
+     NOTE: Every pvE exists in some pvEIoc in some ioc's pvElist.
+     NOTE: A pvE may not be in the stringResTbl if the
+           pvname was moved from a DOWN ioc to another ioc.
 */
 class pvEIoc: public tsSLNode<pvEIoc> {
 public:
