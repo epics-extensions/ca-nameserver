@@ -38,8 +38,8 @@ extern "C" void processChangeConnectionEvent( struct connection_handler_args arg
 
 pIoc::~pIoc()
 {
-	while ( pvEIoc * pvei = this->pvEList.get() ) {
-		delete pvei;
+	while ( pvE * pve = this->get() ) {
+			delete pve;
 	}
 }
 
@@ -204,22 +204,15 @@ void directoryServer::sigusr1(int sig)
 directoryServer::~directoryServer()
 {
     tsSLList < pIoc > tmpIocList;
-    tsSLList < pvE > tmpStringList;
     tsSLList < never > tmpNeverList;
 
 	ca_context_destroy();
-
-    this->pvServer::~pvServer();
 
 	// removeAll() puts entries on a tmpList.
 	// and then traverses list deleting each entry
 	this->iocResTbl.removeAll(tmpIocList);
     while ( pIoc * pI = tmpIocList.get() ) {
 		delete pI;
-    }
-	this->stringResTbl.removeAll(tmpStringList);
-    while ( pvE * pS = tmpStringList.get() ) {
-		delete pS;
     }
 	this->neverResTbl.removeAll(tmpNeverList);
     while ( never * pN = tmpNeverList.get() ) {
@@ -309,36 +302,50 @@ pIoc * directoryServer::installIocName(const char *pIocName, const char *pPath)
 int directoryServer::installPVName( const char *pName, pIoc *pI)
 {
 	pvE	*pve;
+	pvE	*pve2;
+	pIoc *pIoc;
 	char *iocName = 0;
 
 	if (pI) iocName = pI->get_iocname();
 	pve = new pvE( *this, pName, pI);
-	if (pve) {
-		int resLibStatus;
+	if (!pve) {
+		return(-1); //should never get here.
+	}
+	int resLibStatus;
+	resLibStatus = this->stringResTbl.add(*pve);
+	if (resLibStatus==0) {
+		if(verbose)
+			fprintf(stdout, "Installed PV: %s  %s in hash table\n", pName, iocName);
+		/* add this pvE to the ioc's pvEList */
+		if (pI) pI->add(pve);
+		return(0);
+	}
+	char    checkStr[PV_NAME_SZ];
+	sprintf(checkStr,"%s%s",iocName, HEARTBEAT);
+	if(!strcmp(checkStr,pName)) {
+		delete pve;
+		//printf("Special treatment for heartbeats\n");
+		return(1);
+	}
+	// Remove existing pve from stringResTable if it's ioc is DOWN
+	// and add new pve to stringResTable
+	stringId id4(pName, stringId::refString);
+	pve2 = this->stringResTbl.lookup(id4);
+	pIoc = pve2->get_pIoc();	
+	if (pIoc && pIoc->get_status() == 2) {
+		pve2 = this->stringResTbl.remove(id4);
 		resLibStatus = this->stringResTbl.add(*pve);
 		if (resLibStatus==0) {
-			if(verbose)
-				fprintf(stdout, "Installed PV: %s  %s in hash table\n", pName, iocName);
+			fprintf(stdout, "Moved PV: %s from %s to %s\n", pName, pIoc->get_iocname(), iocName);
 			/* add this pvE to the ioc's pvEList */
 			if (pI) pI->add(pve);
 			return(0);
 		}
-		else {
-			delete pve;
-			char    checkStr[PV_NAME_SZ];
-            sprintf(checkStr,"%s%s",iocName, HEARTBEAT);
-            if(strcmp(checkStr,pName)) {
-				fprintf(stdout, "Unable to enter PV %s on %s in hash table. Duplicate?\n",
-					 pName, iocName);
-				return(-1);
-			}
-			else {
-				//printf("Special treatment for heartbeats\n");
-				return(1);
-			}
-		}
 	}
-	return(-1); //should never get here.
+	delete pve;
+	fprintf(stdout, "Unable to enter PV %s on %s in hash table. Duplicate?\n",
+		 pName, iocName);
+	return(-1);
 }
 
 pvExistReturn directoryServer::pvExistTest(const casCtx& ctx, const char *pvName)

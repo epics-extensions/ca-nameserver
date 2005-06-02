@@ -1007,7 +1007,8 @@ static int remove_all_pvs(pIoc *pI)
 	int		ct=0;
 	pvE		*pvEHeartbeat=0;
 	char	*iocName;
-    int      removeAll=1;
+	int      removeAll=1;
+ 	pvE 	*pve2;
 
 	if(!pI) {
 		fprintf(stderr, "NOT IN TABLE\n");fflush(stderr);
@@ -1030,7 +1031,11 @@ static int remove_all_pvs(pIoc *pI)
 		if ( removeAll || strcmp(checkStr,pvNameStr)) {
 
 			stringId id2(pvNameStr, stringId::refString);
-			pve = pCAS->stringResTbl.remove(id2);
+			pve2 = pCAS->stringResTbl.lookup(id2);
+			// if there is not a new pve (PV has not moved to another ioc)
+			if(pve == pve2) {
+				pve2 = pCAS->stringResTbl.remove(id2);
+			}
 			if(pve) {
 				delete pve;
 				ct--;
