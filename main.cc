@@ -701,12 +701,10 @@ static int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag, 
 */
 static void start_ca_monitor()
 {
-    void *pfdctx;
 
     SEVCHK(ca_context_create(ca_enable_preemptive_callback),
         "initializeCA: error in ca_context_create");
-    pfdctx = (void *) fdmgr_init();
-    SEVCHK(ca_add_fd_registration(registerCA,pfdctx),
+    SEVCHK(ca_add_fd_registration(registerCA,NULL),
         "initializeCA: error adding CA's fd to X");
 }
 
