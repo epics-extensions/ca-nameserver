@@ -197,7 +197,7 @@ extern int main (int argc, char *argv[])
         if (parm_error == 2) fprintf(stderr,"\nInvalid command line option %s %s\n ",
              argv[i-2], argv[i-1]);
         fprintf (stderr, "usage: %s [-d<debug level> -f<PV directory file> "
-           "-p<pvlist file> "
+           "-p<pvlist file>> -x<pvname prefix> "
            "-l<log file> -s -h<hash table size>] [-c cd to -v]\n", argv[0]);
        	exit(-1);
     }
