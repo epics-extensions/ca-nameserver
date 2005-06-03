@@ -69,7 +69,7 @@ Thu May 19 10:04:16 CDT 2005
 	Added if verbose to fprintf stmnt which preceed setup_logging.
 
 Tue May 24 20:54:34 CDT 2005
-Set a ca connection handler on ALL learned pvs (may be gateway pvs).
+	Set a ca connection handler on ALL learned pvs (may be gateway pvs).
 
 Thu Jun  2 16:10:47 CDT 2005
 	Added -x to usage line.  Let ca call fdmgr_init().
