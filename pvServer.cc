@@ -65,6 +65,7 @@ pvServer::pvServer ( const char * const pvPrefix )
         fprintf(stdout, "Installed PV: %s in ns hash table\n", name);
     }
     fprintf(stdout, "Total nameserver PVs: %d\n",this->pvListNElem);
+    fflush(stdout);
 
 }
 
@@ -103,6 +104,7 @@ void pvServer::installName(pvInfo &info, const char *pName)
     fprintf ( stderr, 
 "Unable to enter PV=\"%s\" Name=\"%s\" in PV name hash table\n",
         info.getName(), pName );
+    fflush(stderr);
 }
 
 //
@@ -113,7 +115,7 @@ void pvServer::installName(pvInfo &info, const char *pName)
 pvExistReturn pvServer::pvExistTest
 	( const casCtx & ctx, const caNetAddr &, const char * pPVName )
 {
-fprintf (stdout,"pvServer::pvExistTest  3PARAM name=%s\n",pPVName);fflush(stdout);
+//fprintf (stdout,"pvServer::pvExistTest  3PARAM name=%s\n",pPVName);fflush(stdout);
 	return this->pvExistTest ( ctx, pPVName );
 }
 
