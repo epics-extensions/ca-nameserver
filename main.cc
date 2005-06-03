@@ -863,7 +863,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 			pI = ( pIoc * ) ca_puser( args.chid );
 			if(pI) {
 				pI->set_status(2);
-				log_message(INFO,"CONN DOWN for %s\n", pI->get_iocname()); fflush(stdout);
+				if (!monitorAll) log_message(INFO,"CONN DOWN for %s\n", pI->get_iocname()); fflush(stdout);
 				// Remove all pvs now
 				// On reconnect this ioc may have a different port
 				removed = remove_all_pvs(pI);
@@ -891,7 +891,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 				return;
 			}
 			isHeartbeat = 1;
-		    log_message(INFO,"CONN UP for %s\n", iocname); fflush(stdout);
+		    if (!monitorAll) log_message(INFO,"CONN UP for %s\n", iocname); fflush(stdout);
 		}
 
 
