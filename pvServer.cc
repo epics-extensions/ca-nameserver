@@ -44,7 +44,7 @@ pvServer::pvServer ( const char * const pvPrefix )
     char name[256];
     const char * const pNameFmtStr = "%.100s%.20s";
 
-    fprintf(stdout, "pvPrefix = %s \n", pvPrefix);
+    fprintf(stdout, "\npvPrefix = %s \n", pvPrefix);
     nsPV::initFT();
 
     //
@@ -64,7 +64,7 @@ pvServer::pvServer ( const char * const pvPrefix )
         this->installName(*pPVI, name);
         fprintf(stdout, "Installed PV: %s in ns hash table\n", name);
     }
-    fprintf(stdout, "Total nameserver PVs: %d\n",this->pvListNElem);
+    fprintf(stdout, "Total nameserver PVs: %d\n\n",this->pvListNElem);
     fflush(stdout);
 
 }

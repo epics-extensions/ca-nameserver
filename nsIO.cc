@@ -9,10 +9,12 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <time.h>
 
 #ifdef linux
 #include <sys/wait.h>
-#include <time.h>
 #endif
 
 #include "reserve_fd.h"
@@ -20,6 +22,11 @@
 
 #define NS_SCRIPT_FILE "nameserver.killer"
 #define NS_RESTART_FILE "nameserver.restart"
+
+#define MAX_MESSAGE_CHARS 1024
+#define MAX_TIME_CHARS 30
+
+static int log_level = 2;
 
 /*! \brief Change to home directory 
  *
@@ -237,5 +244,52 @@ void print_env_vars(FILE *fp)
    	print_env(fp,"EPICS_CAS_SERVER_PORT");
    	print_env(fp,"EPICS_CAS_INTF_ADDR_LIST");
    	print_env(fp,"EPICS_CAS_IGNORE_ADDR_LIST");
+}
+
+
+/***********************************************************************
+ * set the log message level
+ ***********************************************************************/
+void set_log_level(int level)
+{
+   log_level = level;
+}
+
+
+/***********************************************************************
+ * log a message to the logfile
+ ***********************************************************************/
+void log_message(int level,const char* fmt,...)
+{
+    va_list vargs;
+    static char text[MAX_MESSAGE_CHARS];
+    int status=0;
+    char buf[MAX_TIME_CHARS];
+
+    fflush(stdout);
+    fflush(stderr);
+
+    if (level < log_level) return;
+
+    va_start(vargs,fmt);
+    vsprintf(text,fmt,vargs);
+    va_end(vargs);
+
+    epicsTime time = epicsTime::getCurrent ();
+    time.strftime(buf,30,"%Y-%m-%d %H:%M:%S.%06f");
+
+    if (buf)
+      status=fprintf(stdout,"%s  %s",buf,text);
+    else
+      status=fprintf(stdout,"                            %s",text);
+
+    if (status<0 )  {
+      fprintf(stderr,"Can't write to log file: '%s' \n", text );
+    }
+
+    fflush(stdout);
+    fflush(stderr);
+
+    return;
 }
 

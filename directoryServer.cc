@@ -83,7 +83,7 @@ void pIoc::set_addr( chid chid)
         }
         mystatus = aToIPAddr (hostNameStr, portNumber, &this->addr);
         if (mystatus) {
-            fprintf (stderr, "Unknown host name: %s \n", hostNameStr);
+            log_message (ERROR, "Unknown host name: %s \n", hostNameStr);
 		}
 }
 
@@ -119,7 +119,7 @@ void pIoc::add( pvE *pve)
 
 	pveH = new pvEIoc(pve);
 	if (pveH) this->pvEList.add(*pveH);
-	else fprintf(stdout, "cant add %s node to %s ioc pv table\n", pve->get_name(), this->get_iocname());
+	else log_message (WARNING, "cant add %s node to %s ioc pv table\n", pve->get_name(), this->get_iocname());
 }
 
 
@@ -166,31 +166,23 @@ directoryServer::directoryServer( unsigned pvCount,const char* const pvPrefix) :
 */
 void directoryServer::sigusr1(int sig)
 {
-	epicsTime	first;
-	local_tm_nano_sec   ansiDate;
 
 	if( sig == SIGUSR2) {
-		fprintf(stdout,"SIGUSR2\n");
+		log_message (INFO,"********* SIGUSR2 \n");
 		start_new_log = 1;
 		signal(SIGUSR2, sigusr1);
 	}
 
 	else if( sig == SIGTERM || sig == SIGINT) {
-		first = epicsTime::getCurrent ();
-		ansiDate = first;
-		fprintf(stdout,"SIGTERM time: %s\n", asctime(&ansiDate.ansi_tm));
-		fflush(stdout);
-		fflush(stderr);
+		log_message (INFO,"********* SIGTERM \n");
 		outta_here = 1;
 	}
 	else {	
-		first = epicsTime::getCurrent ();
-		ansiDate = first;
-		fprintf(stdout,"\n*********Sigusr1 time: %s\n", asctime(&ansiDate.ansi_tm));
+		log_message (INFO,"********* SIGUSR1 \n");
 		// level=2 gets summary info
 		// level=10 gets ALL names ...be careful what you ask for...
 		self->show(2);
-		fflush(stdout);
+		log_message (INFO,"********* END SIGUSR1 report\n");
 		signal(SIGUSR1, sigusr1);
 	}
 }
@@ -224,13 +216,7 @@ directoryServer::~directoryServer()
 
     if (pgateAs) delete pgateAs;
 
-	epicsTime	first;
-	local_tm_nano_sec   ansiDate;
-	first = epicsTime::getCurrent ();
-	ansiDate = first;
-	fprintf(stdout,"EXIT time: %s\n", asctime(&ansiDate.ansi_tm));
-	fflush(stdout);
-	fflush(stderr);
+	log_message (INFO,"EXIT\n");
 }
 
 /*! \brief Add a never to the never hashtable
@@ -247,16 +233,16 @@ int directoryServer::installNeverName(const char *pName)
 		int resLibStatus;
 		resLibStatus = this->neverResTbl.add(*pnev);
 		if (resLibStatus==0) {
-			if(verbose)fprintf(stdout, "added %s to never table\n", pName);
+			if(verbose)log_message (INFO, "added %s to never table\n", pName);
 			return(0);
 		}
 		else {
 			delete pnev;
-			fprintf(stderr,"Unable to install %s. \n", pName);
+			log_message (ERROR,"Unable to install %s. \n", pName);
 		}
 	}
 	else {
-		fprintf(stderr,"can't create new never %s\n", pName);
+		log_message (ERROR,"can't create new never %s\n", pName);
 	}
 	return(-1);
 }
@@ -278,16 +264,16 @@ pIoc * directoryServer::installIocName(const char *pIocName, const char *pPath)
 		int resLibStatus;
 		resLibStatus = this->iocResTbl.add(*pI);
 		if (resLibStatus==0) {
-			if(verbose)fprintf(stdout, "added %s to ioc table\n", pIocName);
+			if(verbose)log_message (INFO, "added %s to ioc table\n", pIocName);
 			return(pI);
 		}
 		else {
 			delete pI;
-			fprintf(stderr,"Unable to install %s. \n", pIocName);
+			log_message (ERROR,"Unable to install %s. \n", pIocName);
 		}
 	}
 	else {
-		fprintf(stderr,"can't create new ioc %s\n", pIocName);
+		log_message (ERROR,"can't create new ioc %s\n", pIocName);
 	}
 	return(0);
 }
@@ -315,7 +301,7 @@ int directoryServer::installPVName( const char *pName, pIoc *pI)
 	resLibStatus = this->stringResTbl.add(*pve);
 	if (resLibStatus==0) {
 		if(verbose)
-			fprintf(stdout, "Installed PV: %s  %s in hash table\n", pName, iocName);
+			log_message (INFO, "Installed PV: %s  %s in hash table\n", pName, iocName);
 		/* add this pvE to the ioc's pvEList */
 		if (pI) pI->add(pve);
 		return(0);
@@ -324,7 +310,7 @@ int directoryServer::installPVName( const char *pName, pIoc *pI)
 	sprintf(checkStr,"%s%s",iocName, HEARTBEAT);
 	if(!strcmp(checkStr,pName)) {
 		delete pve;
-		//printf("Special treatment for heartbeats\n");
+		//log_message (DEBUG,"Special treatment for heartbeats\n");
 		return(1);
 	}
 	// Remove existing pve from stringResTable if it's ioc is DOWN
@@ -336,14 +322,14 @@ int directoryServer::installPVName( const char *pName, pIoc *pI)
 		pve2 = this->stringResTbl.remove(id4);
 		resLibStatus = this->stringResTbl.add(*pve);
 		if (resLibStatus==0) {
-			fprintf(stdout, "Moved PV: %s from %s to %s\n", pName, pIoc->get_iocname(), iocName);
+			log_message (INFO, "Moved PV: %s from %s to %s\n", pName, pIoc->get_iocname(), iocName);
 			/* add this pvE to the ioc's pvEList */
 			if (pI) pI->add(pve);
 			return(0);
 		}
 	}
 	delete pve;
-	fprintf(stdout, "Unable to enter PV %s on %s in hash table. Duplicate?\n",
+	log_message (ERROR, "Unable to enter PV %s on %s in hash table. Duplicate?\n",
 		 pName, iocName);
 	return(-1);
 }
@@ -382,7 +368,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 	int 		i, len, status;
     pvExistReturn pvReturn;
 
-//fprintf(stdout, "directoryServer:pvExistTest name=%s\n",pPVName); fflush(stdout);
+//log_message (INFO, "directoryServer:pvExistTest name=%s\n",pPVName);
 	stats.request++;
 
 	// strip the requested PV to just the record name, omit the field.
@@ -409,7 +395,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 		pI = pve->get_pIoc();
 		if(!pI) {
 			if(verbose)
-				fprintf(stdout,"PV found and Ioc error for %s\n",shortPV);
+				log_message (VERBOSE,"PV found and Ioc error for %s\n",shortPV);
 			stats.ioc_error++;
 			return pverDoesNotExistHere;
 		}
@@ -418,24 +404,24 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 				stats.hit++;
 /*
 				sockaddr_in tin = pI->getAddr();
-				printf("f: %d p: %d a: %d\n",
+				log_message (INFO,"f: %d p: %d a: %d\n",
 					tin.sin_family,
 					tin.sin_port,
 					tin.sin_addr);
-			    printf("ADDR <%s>\n", inet_ntoa(tin.sin_addr));
+			    log_message (INFO,"ADDR <%s>\n", inet_ntoa(tin.sin_addr));
 */
 
 				if(verbose)
-					fprintf(stdout,"PV found and Ioc up for %s\n",shortPV);
-//printf("ADDR <%s> %s  ", inet_ntoa(((sockaddr_in)pI->getAddr()).sin_addr),shortPV);
-//printf("ADDR <%d> \n", pI->getAddr().sin_port); fflush(stdout);
+					log_message (VERBOSE,"PV found and Ioc up for %s\n",shortPV);
+//log_message (INFO,"ADDR <%s> %s  ", inet_ntoa(((sockaddr_in)pI->getAddr()).sin_addr),shortPV);
+//log_message (INFO,"ADDR <%d> \n", pI->getAddr().sin_port); 
 				return pvExistReturn (caNetAddr(pI->getAddr()));
 	
 			}
 			else {
 				stats.ioc_down++;
 				if(verbose)
-					fprintf(stdout,"PV found and Ioc down for %s\n",shortPV);
+					log_message (VERBOSE,"PV found and Ioc down for %s\n",shortPV);
 				return pverDoesNotExistHere;
 			}
 		}
@@ -443,12 +429,12 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 	else if (!pve) {
 
 		// See if pv is a nameserver pv.
-//fprintf(stdout,"=====Calling pvServer::pvExistTest\n"); fflush(stdout);
+//log_message (INFO,"=====Calling pvServer::pvExistTest\n");
 		pvReturn = this->pvServer::pvExistTest (ctx,pPVName);
 		if(pvReturn.getStatus() == pverExistsHere){
 			stats.hit++;
 			if(verbose)
-				fprintf(stdout,"Nameserver PV found for %s\n",pPVName);
+				log_message (VERBOSE,"Nameserver PV found for %s\n",pPVName);
 			return pverExistsHere;
 		}
 
@@ -459,7 +445,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			if(!strcmp(pNN->get_name(), shortPV)){
 				stats.pending++;
 				if(verbose)
-					fprintf(stdout,"Connection pending for %s\n", shortPV);
+					log_message (VERBOSE,"Connection pending for %s\n", shortPV);
 				return (pverDoesNotExistHere);
 			}
 			iter++;
@@ -478,13 +464,13 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			if (this->pgateAs && !this->pgateAs->findEntry(shortPV,ioc)) {
 				stats.broadcast_denied++;
 				if(verbose)
-					fprintf(stdout,"CA search broadcast denied from host for %s\n", shortPV);
+					log_message (VERBOSE,"CA search broadcast denied from host for %s\n", shortPV);
 				return (pverDoesNotExistHere);
 			}
 		} else {
 			if (this->pgateAs && !this->pgateAs->findEntry(shortPV)) {
 				if(verbose)
-					fprintf(stdout,"CA search broadcast denied for %s\n", shortPV);
+					log_message (VERBOSE,"CA search broadcast denied for %s\n", shortPV);
 				stats.broadcast_denied++;
 				return (pverDoesNotExistHere);
 			}
@@ -493,21 +479,21 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 		// Broadcast for the requested pv.
 		status = ca_search_and_connect(shortPV,&chd,processChangeConnectionEvent,0);
 		if (status != ECA_NORMAL) {
-			fprintf(stderr,"CA search failed for %s\n",shortPV);
+			log_message (ERROR,"CA search failed for %s\n",shortPV);
 			return pverDoesNotExistHere;
 		}
 		else {
 			// Create a node for the linked list of pending connections
 			pNN = new namenode(shortPV, chd, 0);
 			if(pNN == NULL) {
-				fprintf(stderr,"Failed to create namenode for %s\n", shortPV);
+				log_message (ERROR,"Failed to create namenode for %s\n", shortPV);
 				return pverDoesNotExistHere;
 			}
 			pNN->set_otime();
 			// Add this pv to the list of pending pv connections 
 			this->addNN(pNN);
 			if(verbose)
-				fprintf(stdout, "CA search broadcasting for %s\n", shortPV);
+				log_message (VERBOSE, "CA search broadcasting for %s\n", shortPV);
 			stats.broadcast++;
 			return (pverDoesNotExistHere);
 		}

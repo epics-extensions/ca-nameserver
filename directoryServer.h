@@ -19,6 +19,7 @@
 #include "gateAs.h"
 
 #include "pvServer.h"
+#include "nsIO.h"
 
 // *** SITE SPECIFIC MODIFICATIONS TO BE EDITED  ***
 // If ca_host_name(chid) returns iocname.jlab.acc.org:5064, set the
