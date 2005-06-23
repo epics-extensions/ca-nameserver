@@ -533,7 +533,7 @@ void directoryServer::show (unsigned level) const
 	this->stringResTbl.show(level);
 	fprintf(stdout, "\n");
 
-	never_ptr = fopen("./never.log", "w");
+	never_ptr = reserve_fd_fopen("./never.log", "w");
 	fprintf(stdout, "Never Hash Table:\n");
 
 	// Create a ptr to the fn we're gonna call.
@@ -542,7 +542,7 @@ void directoryServer::show (unsigned level) const
 	// create a ptr to T and cast it as non-const
 	resTable<never,stringId> *junk = (resTable<never,stringId>* )&this->neverResTbl;
 	junk->traverse(fptr); 
-	fclose(never_ptr);
+	reserve_fd_fclose(never_ptr);
 	fprintf(stdout, "\n");
 
 	fprintf(stdout, "NEVER Hash Table:\n");
