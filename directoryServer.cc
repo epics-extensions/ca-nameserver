@@ -10,6 +10,7 @@ static char *rcsid="$Header$";
 
 #include <casdef.h>
 
+#include "reserve_fd.h"
 #include "directoryServer.h"
 #ifdef linux
 #include <time.h>
