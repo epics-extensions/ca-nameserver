@@ -195,12 +195,12 @@ void setup_logging(char *log_file)
 	// Redirect stdout and stderr
 	// Open it and close it to empty it (Necessary on WIN32,
 	// apparently not necessary on Solaris)
-	FILE *fp=fopen(log_file,"w");
+	FILE *fp=reserve_fd_fopen(log_file,"w");
 	if(fp == NULL) {
 		fprintf(stderr,"Cannot open %s\n",log_file);
 		fflush(stderr);
 	} else {
-		fclose(fp);
+		reserve_fd_fclose(fp);
 	}
 	if( (freopen(log_file,"a",stderr))==NULL ) {
 		fprintf(stderr,"Redirect of stderr to file %s failed\n",log_file);
