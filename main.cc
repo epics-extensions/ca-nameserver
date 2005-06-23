@@ -46,6 +46,8 @@ static int start_daemon();
 static int remove_all_pvs(pIoc *pI);
 static int add_all_pvs(pIoc *pI);
 static char *iocname(int isFilname,char *pPath);
+static void processPendingList (epicsTime now,double tooLong);
+static void processReconnectingIocs ();
 
 // globals
 directoryServer	*pCAS;
@@ -293,54 +295,8 @@ extern int main (int argc, char *argv[])
 			//ca_poll();
 
 #ifdef JS_FILEWAIT
-			// For each ioc on the linked list of reconnecting iocs
-			// see if the ioc finished writing the signal.list file?
-			struct stat sbuf;			
-			filewait *pFW;
-			filewait *pprevFW=0;
-			int size = 0;
-			tsSLIter<filewait> iter2=pCAS->fileList.firstIter();
-			while(iter2.valid()) {
-					tsSLIter<filewait> tmp = iter2;
-					tmp++;
-					pFW=iter2.pointer();
-					char *file_to_wait_for;
-					file_to_wait_for = pFW->get_pIoc()->get_pathToList();
-					// We're waiting to get the filesize the same twice in a row.
-					// This is at best a poor test to see if the ioc has finished writing signal.list.
-					// Better way would be to find a token at the end of the file but signal.list
-					// files are also used by the old nameserver and can't be changed.
-					if(stat(file_to_wait_for, &sbuf) == 0) {
-						// size will be 0 first time thru
-						// So at least we will have a delay in having to get here a second time.
-						size = pFW->get_size();
-						if((sbuf.st_size == size) && (size != 0)) {
-							//log_message(INFO,"SIZE EQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
-							remove_all_pvs(pFW->get_pIoc());
-							pv_count = add_all_pvs(pFW->get_pIoc()); 
-							if (pv_count >= 0 || pFW->read_tries >2 ) {
-								if (pv_count > 0) pCAS->generateBeaconAnomaly();
-                            	if(pprevFW) pCAS->fileList.remove(*pprevFW);
-								else pCAS->fileList.get();
-								delete pFW;
-								pFW =0;
-							} else {
-								pFW->read_tries++;
-							}
-						}
-						else{
-							pFW->set_size(sbuf.st_size);
-							//log_message(INFO,"UNEQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
-						}
-					}
-					else {
-						log_message(ERROR,"Stat failed for %s because %s\n", file_to_wait_for, strerror(errno));
-					}
-					if (pFW) pprevFW = pFW;
-					iter2 = tmp;
-			}
+			processReconnectingIocs ();
 #endif
-
 			if(start_new_log) {
 #ifdef PIOC
 				stringId id("opbat1", stringId::refString);
@@ -365,76 +321,7 @@ extern int main (int argc, char *argv[])
 			if((now - begin) > purgeTime) {
 				// reset the timer.
 				begin = epicsTime::getCurrent();
-
-				// Look for purgable pv's.
-				namenode *pNN;
-				namenode *pprevNN = 0;
-				tsSLIter<namenode> iter1=pCAS->nameList.firstIter();
-				tsSLIter<namenode> tmp;
-				while(iter1.valid()) {
-					tmp = iter1;
-					tmp++;
-					pNN=iter1.pointer();
-					if((pNN->get_otime() + tooLong < now )) {
-						if(pNN->get_rebroadcast()) {
-
-							// Rebroadcast for heartbeat
-							chid tchid;
-							int chid_status = ca_state(pNN->get_chid());
-							pI = (pIoc*)ca_puser(pNN->get_chid());
-							//log_message(INFO, "1. chid_status: %d name: %s\n", 
-							//	chid_status, pNN->get_name());fflush(stdout);
-							if(chid_status != 3) {
-							    //enum channel_state {cs_never_conn, cs_prev_conn, cs_conn, cs_closed};
-								int stat = ca_clear_channel(pNN->get_chid());
-								ca_flush_io();
-								if(stat != ECA_NORMAL) {
-									log_message(ERROR,"Purge: Can't clear channel for %s\n", pNN->get_name());
-									log_message(ERROR, "Error: %s\n", ca_message(stat));
-								}
-								else {
-									stat = ca_search_and_connect((char *)pNN->get_name(), &tchid, 
-										WDprocessChangeConnectionEvent, 0);
-									if(stat != ECA_NORMAL) {
-										log_message(ERROR, "Purge: Can't search for %s\n", pNN->get_name());
-									} else {
-										pNN->set_chid(tchid);
-										pNN->set_otime();
-										ca_set_puser (tchid, pI);
-										//log_message(DEBUG, "Purge: New search for %s\n", pNN->get_name());
-									}
-								}
-							}
-							fflush(stdout); fflush(stderr);
-							continue;
-						}
-
-						// Update the "never" hash table
-						stringId id(pNN->get_name(), stringId::refString);
-						never *pnev;
-						pnev = pCAS->neverResTbl.lookup(id);
-						if(!pnev) pCAS->installNeverName(pNN->get_name());
-						else pnev->incCt();
-
-						// clear the channel
-						int chid_status = ca_state(pNN->get_chid());
-						//log_message(DEBUG, "2. chid_status: %d name: %s\n", 
-						//	chid_status, pNN->get_name());fflush(stdout);
-						if(chid_status != 3) {
-							int stat = ca_clear_channel(pNN->get_chid());
-							ca_flush_io();
-							if(stat != ECA_NORMAL) 
-								log_message(ERROR,"Channel clear error for %s\n", pNN->get_name());
-						}
-						fflush(stdout);
-						if (pprevNN) pCAS->nameList.remove(*pprevNN);
-						else pCAS->nameList.get();
-						delete pNN;
-						pNN = 0;
-					} // end purge
-					if (pNN) pprevNN = pNN;
-					iter1 = tmp;
-				} // end iter looking for things to purge
+				processPendingList(now,tooLong);
 			} // end if time to purge
 		} // end while(!outta_here)
 	}
@@ -443,6 +330,132 @@ extern int main (int argc, char *argv[])
 	return (0);
 }
 
+#ifdef JS_FILEWAIT
+static void processReconnectingIocs (){
+	int	pv_count;						//!< count of pv's in startup lists
+	// For each ioc on the linked list of reconnecting iocs
+	// see if the ioc finished writing the signal.list file?
+	struct stat sbuf;			
+	filewait *pFW;
+	filewait *pprevFW=0;
+	int size = 0;
+	tsSLIter<filewait> iter2=pCAS->fileList.firstIter();
+	while(iter2.valid()) {
+		tsSLIter<filewait> tmp = iter2;
+		tmp++;
+		pFW=iter2.pointer();
+		char *file_to_wait_for;
+		file_to_wait_for = pFW->get_pIoc()->get_pathToList();
+		// We're waiting to get the filesize the same twice in a row.
+		// This is at best a poor test to see if the ioc has finished writing signal.list.
+		// Better way would be to find a token at the end of the file but signal.list
+		// files are also used by the old nameserver and can't be changed.
+		if(stat(file_to_wait_for, &sbuf) == 0) {
+			// size will be 0 first time thru
+			// So at least we will have a delay in having to get here a second time.
+			size = pFW->get_size();
+			if((sbuf.st_size == size) && (size != 0)) {
+				//log_message(INFO,"SIZE EQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
+				remove_all_pvs(pFW->get_pIoc());
+				pv_count = add_all_pvs(pFW->get_pIoc()); 
+				if (pv_count >= 0 || pFW->read_tries >2 ) {
+					if (pv_count > 0) pCAS->generateBeaconAnomaly();
+                   	if(pprevFW) pCAS->fileList.remove(*pprevFW);
+					else pCAS->fileList.get();
+					delete pFW;
+					pFW =0;
+				} else {
+					pFW->read_tries++;
+				}
+			}
+			else{
+				pFW->set_size(sbuf.st_size);
+				//log_message(INFO,"UNEQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
+			}
+		}
+		else {
+			log_message(ERROR,"Stat failed for %s because %s\n", file_to_wait_for, strerror(errno));
+		}
+		if (pFW) pprevFW = pFW;
+		iter2 = tmp;
+	}
+}
+#endif
+
+static void processPendingList (epicsTime now,double tooLong){
+ 
+	// Look for purgable pv's.
+	pIoc *pI;
+	namenode *pNN;
+	namenode *pprevNN = 0;
+	tsSLIter<namenode> iter1=pCAS->nameList.firstIter();
+	tsSLIter<namenode> tmp;
+	while(iter1.valid()) {
+	 	tmp = iter1;
+		tmp++;
+		pNN=iter1.pointer();
+		if((pNN->get_otime() + tooLong < now )) {
+			if(pNN->get_rebroadcast()) {
+
+				// Rebroadcast for heartbeat
+				chid tchid;
+				int chid_status = ca_state(pNN->get_chid());
+				pI = (pIoc*)ca_puser(pNN->get_chid());
+				//log_message(INFO, "1. chid_status: %d name: %s\n", 
+				//	chid_status, pNN->get_name());fflush(stdout);
+				if(chid_status != 3) {
+				    //enum channel_state {cs_never_conn, cs_prev_conn, cs_conn, cs_closed};
+					int stat = ca_clear_channel(pNN->get_chid());
+					ca_flush_io();
+					if(stat != ECA_NORMAL) {
+						log_message(ERROR,"Purge: Can't clear channel for %s\n", pNN->get_name());
+						log_message(ERROR, "Error: %s\n", ca_message(stat));
+					}
+					else {
+						stat = ca_search_and_connect((char *)pNN->get_name(), &tchid, 
+							WDprocessChangeConnectionEvent, 0);
+						if(stat != ECA_NORMAL) {
+							log_message(ERROR, "Purge: Can't search for %s\n", pNN->get_name());
+						} else {
+							pNN->set_chid(tchid);
+							pNN->set_otime();
+							ca_set_puser (tchid, pI);
+							//log_message(DEBUG, "Purge: New search for %s\n", pNN->get_name());
+						}
+					}
+				}
+				fflush(stdout); fflush(stderr);
+				continue;
+			}
+
+			// Update the "never" hash table
+			stringId id(pNN->get_name(), stringId::refString);
+			never *pnev;
+			pnev = pCAS->neverResTbl.lookup(id);
+			if(!pnev) pCAS->installNeverName(pNN->get_name());
+			else pnev->incCt();
+
+			// clear the channel
+			int chid_status = ca_state(pNN->get_chid());
+			//log_message(DEBUG, "2. chid_status: %d name: %s\n", 
+			//	chid_status, pNN->get_name());fflush(stdout);
+			if(chid_status != 3) {
+				int stat = ca_clear_channel(pNN->get_chid());
+				ca_flush_io();
+				if(stat != ECA_NORMAL) 
+					log_message(ERROR,"Channel clear error for %s\n", pNN->get_name());
+			}
+			fflush(stdout);
+			if (pprevNN) pCAS->nameList.remove(*pprevNN);
+			else pCAS->nameList.get();
+			delete pNN;
+			pNN = 0;
+		} // end purge
+		if (pNN) pprevNN = pNN;
+		iter1 = tmp;
+	} // end iter looking for things to purge
+
+}
 
 /*! \brief Fork twice to create a daemon process with no associated terminal
  *
