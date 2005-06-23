@@ -78,3 +78,9 @@ Thu Jun  2 16:10:47 CDT 2005
 Fri Jun  3 12:03:47 CDT 2005  - 2.0.0.5
 	Added logging timestamp to many messages. Added build time and version.
 
+Thu Jun 23 10:33:24 CDT 2005 -  2.0.0.6
+    Use functions to reserve file descriptor for open/close of log file.
+    Moved processPendingList and processReconnectingIocs code out of main().
+    Use functions to reserve file descriptor for open/close of never.log.
+
+
