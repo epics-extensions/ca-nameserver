@@ -344,7 +344,7 @@ static void processReconnectingIocs (){
 		tsSLIter<filewait> tmp = iter2;
 		tmp++;
 		pFW=iter2.pointer();
-		char *file_to_wait_for;
+		const char *file_to_wait_for;
 		file_to_wait_for = pFW->get_pIoc()->get_pathToList();
 		// We're waiting to get the filesize the same twice in a row.
 		// This is at best a poor test to see if the ioc has finished writing signal.list.
@@ -729,7 +729,7 @@ static void start_ca_monitor()
 extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args args)
 {
 	char pvname[PV_NAME_SZ];
-	char *iocname;
+	const char *iocname;
 	pIoc *pI;
 	namenode *pNN;
 #ifdef JS_FILEWAIT
@@ -1011,7 +1011,7 @@ static int remove_all_pvs(pIoc *pI)
 	char checkStr[PV_NAME_SZ];
 	int		ct=0;
 	pvE		*pvEHeartbeat=0;
-	char	*iocName;
+	const char	*iocName;
 	int      removeAll=1;
 	pvE 	*pve2;
 
@@ -1073,7 +1073,7 @@ static int remove_all_pvs(pIoc *pI)
 static int add_all_pvs(pIoc *pI)
 {
 	int count;
-	char *pathToList;
+	const char *pathToList;
 	FILE *pf;
 
 	log_message(INFO,"Adding all pvs for %s\n", pI->get_iocname());

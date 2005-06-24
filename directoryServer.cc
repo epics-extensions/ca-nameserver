@@ -108,19 +108,26 @@ pvE *pIoc::get()
 	return pve;
 }
 
+void pvE::show( unsigned level) const
+{
+    if ( level >= 2u ) {
+    	if ( this->get_pIoc()->get_pathToList()[0] == '\0'){
+    	    printf ( "pvE: name=%s  ioc=%s \n",this->get_name(),this->get_pIoc()->get_iocname());
+        }
+    }
+}
+
 
 void pIoc::show( unsigned level) const
 {
     if ( level >= 1u ) {
         printf ( "pIoc: name=%s  status=%d \n",this->iocname,this->status);
         if ( level >= 2u ) {
-            //if (  this->pathToList[0]== '\0') {
                 tsSLIterConst<pvEIoc> iter=this->pvEList.firstIter();
                 while(iter.valid()) {
                     printf ("	%s\n", iter.pointer()->get_pvE()->get_name() );
                     iter++;
                 }
-           // }
         }
     }
 }
@@ -309,8 +316,8 @@ int directoryServer::installPVName( const char *pName, pIoc *pI)
 {
 	pvE	*pve;
 	pvE	*pve2;
-	pIoc *pIoc;
-	char *iocName = 0;
+	const pIoc *pIoc;
+	const char *iocName = 0;
 
 	if (pI) iocName = pI->get_iocname();
 	pve = new pvE( *this, pName, pI);
@@ -382,7 +389,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 {
 	char 		shortPV[PV_NAME_SZ];
 	pvE 		*pve;
-	pIoc 		*pI;
+	const pIoc 		*pI;
 	namenode	*pNN;
 	chid		chd;	
 	int 		i, len, status;
@@ -570,7 +577,11 @@ void directoryServer::show (unsigned level) const
 	fprintf(stdout, "\n");
 
 	fprintf(stdout, "Ioc Hash Table:\n");
-	this->iocResTbl.show(5);
+	this->iocResTbl.show(2);
+	fprintf(stdout, "\n");
+
+	fprintf(stdout, "Name Hash Table:\n");
+	this->stringResTbl.show(5);
 	fprintf(stdout, "\n");
 
 	// print information about ca server library internals
