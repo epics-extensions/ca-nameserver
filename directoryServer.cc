@@ -114,13 +114,13 @@ void pIoc::show( unsigned level) const
     if ( level >= 1u ) {
         printf ( "pIoc: name=%s  status=%d \n",this->iocname,this->status);
         if ( level >= 2u ) {
-            if (  this->pathToList[0]== '\0') {
+            //if (  this->pathToList[0]== '\0') {
                 tsSLIterConst<pvEIoc> iter=this->pvEList.firstIter();
                 while(iter.valid()) {
                     printf ("	%s\n", iter.pointer()->get_pvE()->get_name() );
                     iter++;
                 }
-            }
+           // }
         }
     }
 }
@@ -553,8 +553,6 @@ void directoryServer::show (unsigned level) const
 	this->stringResTbl.show(level);
 	fprintf(stdout, "\n");
 
-	fprintf(stdout, "Ioc Hash Table:\n");
-	this->iocResTbl.show(2);
 
 	never_ptr = reserve_fd_fopen("./never.log", "w");
 	fprintf(stdout, "Never Hash Table:\n");
