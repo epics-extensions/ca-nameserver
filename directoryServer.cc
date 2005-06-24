@@ -8,6 +8,8 @@
 
 static char *rcsid="$Header$";
 
+#include <string.h>
+
 #include <casdef.h>
 
 #include "reserve_fd.h"
@@ -104,6 +106,24 @@ pvE *pIoc::get()
 	pve=pvei->get_pvE();
 	delete pvei;
 	return pve;
+}
+
+
+void pIoc::show( unsigned level) const
+{
+    if ( level >= 1u ) {
+        printf ( "pIoc: name=%s  status=%d \n",this->iocname,this->status);
+        if ( level >= 2u ) {
+            if ( strchr(this->iocname,'.') || ( strncmp("ioc",this->iocname,3)!= 0 &&
+                 strncmp("sioc",this->iocname,4)!= 0 ) ) {
+                tsSLIterConst<pvEIoc> iter=this->pvEList.firstIter();
+                while(iter.valid()) {
+                    printf ("	%s\n", iter.pointer()->get_pvE()->get_name() );
+                    iter++;
+                }
+            }
+        }
+    }
 }
 
 
@@ -534,12 +554,14 @@ void directoryServer::show (unsigned level) const
 	this->stringResTbl.show(level);
 	fprintf(stdout, "\n");
 
+	fprintf(stdout, "Ioc Hash Table:\n");
+	this->iocResTbl.show(2);
+
 	never_ptr = reserve_fd_fopen("./never.log", "w");
 	fprintf(stdout, "Never Hash Table:\n");
 
 	// Create a ptr to the fn we're gonna call.
 	void (never::*fptr)() = &never::myshow;
-
 	// create a ptr to T and cast it as non-const
 	resTable<never,stringId> *junk = (resTable<never,stringId>* )&this->neverResTbl;
 	junk->traverse(fptr); 
@@ -557,16 +579,18 @@ void directoryServer::show (unsigned level) const
 	// print information about ca server library internals
 	//this->caServer::show(level);
 
-	fprintf(stdout, "Connected IOCS: %d\n", connected_iocs);
-	fprintf(stdout, "Requested IOCS: %d\n", requested_iocs);
-/*
-	tsSLIter<namenode> iter = this->nameList.firstIter ();
 	fprintf(stdout,"PV's pending connections:\n" );
+	tsSLIterConst<namenode> iter = this->nameList.firstIter();
 	while (iter.valid()) {
-		fprintf(stdout,"  %s\n", iter.pointer()->get_name());
+		fprintf(stdout,"	%s\n", iter.pointer()->get_name());
 		++iter;
 	}
-*/
+	fprintf(stdout, "\n");
+
+	fprintf(stdout, "Connected IOCS: %d\n", connected_iocs);
+	fprintf(stdout, "Requested IOCS: %d\n", requested_iocs);
+	fprintf(stdout, "\n");
+
 	if(last_time != first) {
 		double hours = (double)(first - last_time)/60.0/60.0;
 		fprintf(stdout,"\nRequests: \t%10.0f (%9.2f/hour)\n", stats.request, stats.request/hours);

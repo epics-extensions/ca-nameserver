@@ -78,7 +78,7 @@ public:
 		this->chd = chidIn;
 		this->rebroadcast = rebroadcastIn;
 	}
-	const char *get_name() 	{ return name; }
+	const char *get_name() const	{ return name; }
 	void set_otime() 		{ this->otime = epicsTime::getCurrent(); }
 	epicsTime get_otime() 	{ return otime;}
 	chid get_chid() 		{ return chd;}
@@ -129,7 +129,7 @@ public:
 	{
 	}
 	virtual ~pvEIoc(); 		// not inline to keep aCC happy
-	pvE *get_pvE () 			{ return this->pve;}
+	pvE *get_pvE () const			{ return this->pve;}
 
 private:
 	pvE 		*pve;
@@ -148,7 +148,7 @@ public:
 	virtual ~pvE(); 				// not inline to keep aCC happy
 	inline void destroy ();
 	pIoc *get_pIoc () 			const { return this->pI; }
-	char *get_name () 		 		{ return this->name; }
+	char *get_name () 		 	{ return this->name; }
 
 private:
 	directoryServer 		&cas;
@@ -182,9 +182,11 @@ public:
 	void set_addr( chid chid);
 	void add( pvE *pve);            // add a pvE to the pvEList
 	pvE *get();                    // remove a pvE from the pvEList
+	void show ( unsigned level ) const;
+	//tsSLList<pvEIoc>  get_pveList() 	{ return this->pvEList;}
+	tsSLList<pvEIoc> 	pvEList;		//! list of pv's on this ioc
 
 private:
-	tsSLList<pvEIoc> 	pvEList;		//! list of pv's on this ioc
 	int 				status;
 	directoryServer 	&cas;
     struct sockaddr_in  addr;
