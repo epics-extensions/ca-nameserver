@@ -114,8 +114,7 @@ void pIoc::show( unsigned level) const
     if ( level >= 1u ) {
         printf ( "pIoc: name=%s  status=%d \n",this->iocname,this->status);
         if ( level >= 2u ) {
-            if ( strchr(this->iocname,'.') || ( strncmp("ioc",this->iocname,3)!= 0 &&
-                 strncmp("sioc",this->iocname,4)!= 0 ) ) {
+            if (  this->pathToList[0]== '\0') {
                 tsSLIterConst<pvEIoc> iter=this->pvEList.firstIter();
                 while(iter.valid()) {
                     printf ("	%s\n", iter.pointer()->get_pvE()->get_name() );
