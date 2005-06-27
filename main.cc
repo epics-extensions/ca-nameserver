@@ -925,7 +925,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 
 		// If monitorAll=1 we dont want ioc's pvEList so remove pv
 		// just added by installPVName
-		if (monitorAll && pI) pI->get();	
+		if (monitorAll && pI) pI->get_pvE();	
 
 		// 4.___________________________________________
 		// Always remove this pv from the list of pending conections.
@@ -1030,7 +1030,7 @@ static int remove_all_pvs(pIoc *pI)
     }
 
     // get removes first item from list
-    while ( (pve = pI->get()) ) {
+    while ( (pve = pI->get_pvE()) ) {
 		pvNameStr = pve->get_name();
 		if ( removeAll || strcmp(checkStr,pvNameStr)) {
 //log_message(VERBOSE,"Removing %s \n", pvNameStr); fflush(stdout);

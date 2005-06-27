@@ -182,7 +182,8 @@ public:
     void set_port(int valIn) {this->addr.sin_port = valIn;}
 	void set_addr( chid chid);
 	void add( pvE *pve);            // add a pvE to the pvEList
-	pvE *get();                    // remove a pvE from the pvEList
+	pvE *get_pvE();          // remove pvEIoc from pvEList, delete pvEIoc, and return pvE
+
 	void show ( unsigned level ) const;
 	tsSLList<pvEIoc> 	pvEList;		//! list of pv's on this ioc
 

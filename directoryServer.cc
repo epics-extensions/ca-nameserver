@@ -43,7 +43,7 @@ extern "C" void sigusr1(int sig);
 
 pIoc::~pIoc()
 {
-	while ( pvE * pve = this->get() ) {
+	while ( pvE * pve = this->get_pvE() ) {
 			delete pve;
 	}
 }
@@ -94,12 +94,12 @@ void pIoc::set_addr( chid chid)
 
 
 /*! \brief Remove a pvEIoc from the ioc's pvEList
- *         delete  the pvEioc and return it's pve
+ *         delete  the pvEIoc and return it's pve
  *
  * \param pve - a pvE object
  *
 */
-pvE *pIoc::get()
+pvE *pIoc::get_pvE()
 {
 	pvE *pve = 0;
 	// get removes first item from list
