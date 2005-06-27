@@ -37,7 +37,9 @@ extern FILE *never_ptr;
 
 struct nsStats stats = { 0.0,0.0,0.0,0.0,0.0,0.0,0.0 };
 
+
 extern "C" void processChangeConnectionEvent( struct connection_handler_args args);
+extern "C" void sigusr1(int sig);
 
 pIoc::~pIoc()
 {
@@ -191,7 +193,7 @@ directoryServer::directoryServer( unsigned pvCount,const char* const pvPrefix) :
  * At JLab, SIGUSR2 deletes all knowledge of pioc pvs.
  * SIGTERM and SIGINT set the "outta_here" flag.
 */
-void directoryServer::sigusr1(int sig)
+extern "C" void sigusr1(int sig)
 {
 
 	if( sig == SIGUSR2) {
@@ -239,6 +241,10 @@ directoryServer::~directoryServer()
     }
     while ( namenode * pNN = this->nameList.get() ) {
 		delete pNN;
+	}
+
+    while ( filewait * pFW = this->fileList.get() ) {
+		delete pFW;
 	}
 
     if (pgateAs) delete pgateAs;

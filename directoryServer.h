@@ -218,7 +218,6 @@ public:
 	resTable<never,stringId> neverResTbl;	//!< hash of never connected pv's
     gateAs *pgateAs;
 private:
-	static void sigusr1(int); 
 	pvExistReturn pvExistTest (const casCtx&, const char *pPVName );
 	pvExistReturn pvExistTest (const casCtx&, const caNetAddr&, const char *pPVName );
 	pvAttachReturn pvAttach (const casCtx&, const char *pPVName );
