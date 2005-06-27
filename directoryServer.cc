@@ -112,7 +112,7 @@ pvE *pIoc::get()
 
 void pvE::show( unsigned level) const
 {
-    if ( level >= 2u ) {
+    if ( level >= 5u ) {
     	if ( this->get_pIoc()->get_pathToList()[0] == '\0'){
     	    printf ( "pvE: name=%s  ioc=%s \n",this->get_name(),this->get_pIoc()->get_iocname());
         }
@@ -124,7 +124,7 @@ void pIoc::show( unsigned level) const
 {
     if ( level >= 1u ) {
         printf ( "pIoc: name=%s  status=%d \n",this->iocname,this->status);
-        if ( level >= 2u ) {
+        if ( level >= 5u ) {
                 tsSLIterConst<pvEIoc> iter=this->pvEList.firstIter();
                 while(iter.valid()) {
                     printf ("	%s\n", iter.pointer()->get_pvE()->get_name() );
@@ -353,6 +353,7 @@ int directoryServer::installPVName( const char *pName, pIoc *pI)
 	pIoc = pve2->get_pIoc();	
 	if (pIoc && pIoc->get_status() == 2) {
 		pve2 = this->stringResTbl.remove(id4);
+		// Dont delete pve2 becuase it is on an ioc's  pvEList
 		resLibStatus = this->stringResTbl.add(*pve);
 		if (resLibStatus==0) {
 			log_message (INFO, "Moved PV: %s from %s to %s\n", pName, pIoc->get_iocname(), iocName);
@@ -587,7 +588,7 @@ void directoryServer::show (unsigned level) const
 	fprintf(stdout, "\n");
 
 	fprintf(stdout, "Name Hash Table:\n");
-	this->stringResTbl.show(5);
+	this->stringResTbl.show(2);
 	fprintf(stdout, "\n");
 
 	// print information about ca server library internals
