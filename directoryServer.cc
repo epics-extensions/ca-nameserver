@@ -195,6 +195,7 @@ directoryServer::directoryServer( unsigned pvCount,const char* const pvPrefix) :
 */
 extern "C" void sigusr1(int sig)
 {
+	int level;
 
 	if( sig == SIGUSR2) {
 		log_message (INFO,"********* SIGUSR2 \n");
@@ -210,7 +211,9 @@ extern "C" void sigusr1(int sig)
 		log_message (INFO,"********* SIGUSR1 \n");
 		// level=2 gets summary info
 		// level=10 gets ALL names ...be careful what you ask for...
-		self->show(2);
+		if(verbose)level = 5;
+        else level = 2;
+		self->show(level);
 		log_message (INFO,"********* END SIGUSR1 report\n");
 		signal(SIGUSR1, sigusr1);
 	}
@@ -580,15 +583,15 @@ void directoryServer::show (unsigned level) const
 	fprintf(stdout, "\n");
 
 	fprintf(stdout, "NEVER Hash Table:\n");
-	this->neverResTbl.show(2);
+	this->neverResTbl.show(level);
 	fprintf(stdout, "\n");
 
 	fprintf(stdout, "Ioc Hash Table:\n");
-	this->iocResTbl.show(2);
+	this->iocResTbl.show(level);
 	fprintf(stdout, "\n");
 
 	fprintf(stdout, "Name Hash Table:\n");
-	this->stringResTbl.show(2);
+	this->stringResTbl.show(level);
 	fprintf(stdout, "\n");
 
 	// print information about ca server library internals
