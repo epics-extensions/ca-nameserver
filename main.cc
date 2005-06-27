@@ -97,7 +97,6 @@ extern int main (int argc, char *argv[])
 	epicsTime   first;                  //!< time loading begins
 	epicsTime   second;                 //!< time loading begins
 	double 		lapsed;					//!< loading time
-	pIoc 		*pI;
 	int 		parm_error=0;
 	int 		i;
 	int 		c;
@@ -299,6 +298,7 @@ extern int main (int argc, char *argv[])
 #endif
 			if(start_new_log) {
 #ifdef PIOC
+				pIoc 		*pI;
 				stringId id("opbat1", stringId::refString);
 				pI = pCAS->iocResTbl.lookup(id);
 				remove_all_pvs(pI);
@@ -958,7 +958,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 		// If monitorAll=1 We want a connection handler on ALL pvs
 		// else
 		// Don't want monitors on anything except heartbeats.
-		if( !monitorAll || !isHeartbeat) {
+		if( !monitorAll && !isHeartbeat) {
 			int chid_status = ca_state(args.chid);
 			if(chid_status != 3)
 				ca_clear_channel(args.chid);
