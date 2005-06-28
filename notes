@@ -83,6 +83,12 @@ Thu Jun 23 10:33:24 CDT 2005 -  2.0.0.6
     Moved processPendingList and processReconnectingIocs code out of main().
     Use functions to reserve file descriptor for open/close of never.log.
 
-Mon Jun 27 11:18:39 CDT 2005
+Mon Jun 27 11:18:39 CDT 2005 - 2.0.0.9
 	Eliminate solaris warnings by putting extern "C" on sigusr1.
+	Add delete of fileList in directoryServer destructor.
+	main.cc: Removed unused definitons. Fixed clear channel test.
+	Print pvnames in report only if verbose is true.
+	Rename get() to get_pvE() for pIoc.
+	Remove some const qualifiers. 
+	Allow PVname move from DOWN ioc to an UP ioc.
 
