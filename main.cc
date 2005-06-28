@@ -876,7 +876,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 			pI = ( pIoc * ) ca_puser( args.chid );
 			if(pI) {
 				pI->set_status(2);
-				if (!monitorAll) log_message(INFO,"CONN DOWN for %s\n", pI->get_iocname()); fflush(stdout);
+				log_message(INFO,"CONN DOWN for %s\n", pI->get_iocname()); fflush(stdout);
 				// Remove all pvs now
 				// On reconnect this ioc may have a different port
 				removed = remove_all_pvs(pI);
@@ -911,7 +911,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 		// 2.___________________________________________
 		// This is a reconnect or initial connection.
 		if(pI->get_status()==2 || pI->get_status()==0) {
-	 		connected_iocs ++;
+	 		if (!monitorAll) connected_iocs ++;
 			pI->set_addr(args.chid);
 			ca_set_puser(args.chid,pI);
 		}
