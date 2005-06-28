@@ -129,7 +129,7 @@ public:
 	{
 	}
 	virtual ~pvEIoc(); 		// not inline to keep aCC happy
-	pvE *get_pvE () const			{ return this->pve;}
+	pvE *get_pvE () 		{ return this->pve;}
 
 private:
 	pvE 		*pve;
@@ -147,9 +147,9 @@ public:
 	}
 	virtual ~pvE(); 				// not inline to keep aCC happy
 	inline void destroy ();
-	const pIoc *get_pIoc () 			const { return this->pI; }
+	pIoc *get_pIoc () 		{ return this->pI; }
 	const char *get_name () 		 	const { return this->name; }
-	void show ( unsigned level ) const;
+	void myshow ( unsigned level );
 
 private:
 	directoryServer 		&cas;
@@ -175,14 +175,15 @@ public:
 	virtual ~pIoc(); 				// not inline to keep aCC happy
 	const int get_status() const 				{ return this->status; }
 	void set_status(int statIn) 	{ this->status = statIn; }
-	const char *get_pathToList() 	const		{ return this->pathToList;}
+	char *get_pathToList() 	{ return this->pathToList;}
 	const char *get_iocname() const			{ return this->iocname;}
 	inline void destroy ();
+	void show ( unsigned level );
     const struct sockaddr_in getAddr()  const { return this->addr; }
     void set_port(int valIn) {this->addr.sin_port = valIn;}
 	void set_addr( chid chid);
 	void add( pvE *pve);            // add a pvE to the pvEList
-	pvE *get_pvE();          // remove pvEIoc from pvEList, delete pvEIoc, and return pvE
+	pvE *get_pvE(); // remove pvEIoc from pvEList, delete pvEIoc, returns pvE
 
 	void show ( unsigned level ) const;
 	tsSLList<pvEIoc> 	pvEList;		//! list of pv's on this ioc
