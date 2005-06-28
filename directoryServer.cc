@@ -44,7 +44,6 @@ extern "C" void sigusr1(int sig);
 pIoc::~pIoc()
 {
 	while ( pvE * pve = this->get_pvE() ) {
-			delete pve;
 	}
 }
 
@@ -110,7 +109,7 @@ pvE *pIoc::get_pvE()
 	return pve;
 }
 
-void pvE::show( unsigned level) const
+void pvE::myshow( unsigned level)
 {
     if ( level >= 5u ) {
     	if ( this->get_pIoc()->get_pathToList()[0] == '\0'){
@@ -120,12 +119,12 @@ void pvE::show( unsigned level) const
 }
 
 
-void pIoc::show( unsigned level) const
+void pIoc::show( unsigned level)
 {
     if ( level >= 1u ) {
         printf ( "pIoc: name=%s  status=%d \n",this->iocname,this->status);
         if ( level >= 5u ) {
-                tsSLIterConst<pvEIoc> iter=this->pvEList.firstIter();
+                tsSLIter<pvEIoc> iter=this->pvEList.firstIter();
                 while(iter.valid()) {
                     printf ("	%s\n", iter.pointer()->get_pvE()->get_name() );
                     iter++;
@@ -229,6 +228,7 @@ directoryServer::~directoryServer()
 {
     tsSLList < pIoc > tmpIocList;
     tsSLList < never > tmpNeverList;
+    tsSLList < pvE > tmpStringList;
 
 	ca_context_destroy();
 
@@ -241,6 +241,10 @@ directoryServer::~directoryServer()
 	this->neverResTbl.removeAll(tmpNeverList);
     while ( never * pN = tmpNeverList.get() ) {
 		delete pN;
+    }
+	this->stringResTbl.removeAll(tmpStringList);
+    while ( pvE * pve = tmpStringList.get() ) {
+		delete pve;
     }
     while ( namenode * pNN = this->nameList.get() ) {
 		delete pNN;
@@ -325,7 +329,7 @@ int directoryServer::installPVName( const char *pName, pIoc *pI)
 {
 	pvE	*pve;
 	pvE	*pve2;
-	const pIoc *pIoc;
+	pIoc *pIoc = 0;
 	const char *iocName = 0;
 
 	if (pI) iocName = pI->get_iocname();
@@ -349,14 +353,32 @@ int directoryServer::installPVName( const char *pName, pIoc *pI)
 		//log_message (DEBUG,"Special treatment for heartbeats\n");
 		return(1);
 	}
-	// Remove existing pve from stringResTable if it's ioc is DOWN
-	// and add new pve to stringResTable
+	// Remove existing pvE from stringResTable if it's ioc is DOWN
+	// and add new pvE to stringResTable
 	stringId id4(pName, stringId::refString);
 	pve2 = this->stringResTbl.lookup(id4);
-	pIoc = pve2->get_pIoc();	
+	if (pve2) pIoc = pve2->get_pIoc();	
 	if (pIoc && pIoc->get_status() == 2) {
 		pve2 = this->stringResTbl.remove(id4);
-		// Dont delete pve2 becuase it is on an ioc's  pvEList
+
+		// Remove pvEIoc from pvEList, delete pvEIoc, and delete it's pve 
+        pvEIoc * pvei;
+        pvEIoc * pprev = 0;
+        //pvEIoc * pprev = 0;
+        tsSLIter<pvEIoc> iter=pIoc->pvEList.firstIter();
+        while(iter.valid()) {
+            pvei = iter.pointer();
+            if(pvei->get_pvE() == pve2){
+                if (pprev) pIoc->pvEList.remove(*pprev);
+                else pIoc->pvEList.get();
+                delete pve2;
+                delete pvei;
+                break;
+            }
+            pprev = pvei;
+            iter++;
+        }
+
 		resLibStatus = this->stringResTbl.add(*pve);
 		if (resLibStatus==0) {
 			log_message (INFO, "Moved PV: %s from %s to %s\n", pName, pIoc->get_iocname(), iocName);
