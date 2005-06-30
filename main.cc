@@ -228,9 +228,8 @@ extern int main (int argc, char *argv[])
 
     increase_process_limits();
 
-    if(log_file) {
-        setup_logging(log_file);
-    }
+    setup_logging(log_file);
+
     //time  in  seconds since 00:00:00 UTC, January 1, 1970.
     first = epicsTime::getCurrent ();
     log_message(INFO,"Start time\n");
@@ -238,8 +237,8 @@ extern int main (int argc, char *argv[])
     fprintf(stdout,"%s [%s %s]\n", NS_VERSION_STRING,__DATE__,__TIME__);
 
     fprintf(stdout,"\n");
-    fprintf(stdout,"pvlist file: %s\n",pvlist_file);
-    fprintf(stdout,"home directory: %s\n",home_dir);
+    if (pvlist_file) fprintf(stdout,"pvlist file: %s\n",pvlist_file);
+    if (home_dir) fprintf(stdout,"home directory: %s\n",home_dir);
     fprintf(stdout,"\n");
 
     print_env_vars(stdout);
@@ -548,6 +547,8 @@ static int parseDirectoryFile (const char *pFileName)
 	FILE	*pf, *pf2;
 	int	count = 0;
 	char input[200];
+
+    if (!pFileName) return count;
 
 	// Open the user specified input file or the default input file(pvDirectory.txt).
 	pf = fopen(pFileName, "r");

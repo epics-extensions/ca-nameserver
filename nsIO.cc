@@ -57,10 +57,10 @@ void create_killer_script(pid_t parent_pid,const char* const home_dir,const char
 	int sid=getpid();
     fprintf(fd,"\n");
     fprintf(fd,"# options:\n");
-    fprintf(fd,"# home=<%s>\n",home_dir);
+    if (home_dir) fprintf(fd,"# home=<%s>\n",home_dir);
     if (pvlist_file) fprintf(fd,"# pvlist file=<%s>\n",pvlist_file);
-    fprintf(fd,"# log file=<%s>\n",log_file);
-    fprintf(fd,"# list file=<%s>\n",fileName);
+    if (log_file) fprintf(fd,"# log file=<%s>\n",log_file);
+    if (fileName) fprintf(fd,"# list file=<%s>\n",fileName);
     fprintf(fd,"# \n");
     fprintf(fd,"# use the following the get a PV summary report in log:\n");
     fprintf(fd,"#    kill -USR1 %d\n",sid);
@@ -176,6 +176,8 @@ void setup_logging(char *log_file)
 	struct		stat sbuf;			//old logfile info
 	char 		cur_time[200];
 	time_t t;
+
+	if (!log_file) return;
 
 	// Save log file if it exists
 	if(stat(log_file, &sbuf) == 0) {
