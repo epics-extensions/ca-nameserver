@@ -109,15 +109,19 @@ pvE *pIoc::get_pvE()
 	return pve;
 }
 
-void pvE::myshow( unsigned level)
+void pvE::myshow()
 {
-    if ( level >= 5u ) {
-    	if ( this->get_pIoc()->get_pathToList()[0] == '\0'){
-    	    printf ( "pvE: name=%s  ioc=%s \n",this->get_name(),this->get_pIoc()->get_iocname());
-        }
+   	if ( this->get_pIoc()->get_pathToList()[0] == '\0'){
+   	    printf ( "pvE: name=%s  ioc=%s \n",this->get_name(),this->get_pIoc()->get_iocname());
     }
 }
 
+void pIoc::myshow()
+{
+    printf ( "pIoc: name=%s  status=%d ADDR <%s> %d\n",this->iocname,this->status,
+        inet_ntoa(((sockaddr_in)this->getAddr()).sin_addr),
+        this->getAddr().sin_port);
+}
 
 void pIoc::show( unsigned level)
 {
@@ -608,9 +612,13 @@ void directoryServer::show (unsigned level) const
 	this->neverResTbl.show(level);
 	fprintf(stdout, "\n");
 
+	if (verbose) ((resTable<pIoc,stringId>* )&this->iocResTbl)->traverse(&pIoc::myshow); 
+
 	fprintf(stdout, "Ioc Hash Table:\n");
 	this->iocResTbl.show(level);
 	fprintf(stdout, "\n");
+
+	if (verbose) ((resTable<pvE,stringId>* )&this->stringResTbl)->traverse(&pvE::myshow); 
 
 	fprintf(stdout, "Name Hash Table:\n");
 	this->stringResTbl.show(level);

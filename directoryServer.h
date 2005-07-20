@@ -149,7 +149,7 @@ public:
 	inline void destroy ();
 	pIoc *get_pIoc () 		{ return this->pI; }
 	const char *get_name () 		 	const { return this->name; }
-	void myshow ( unsigned level );
+	void myshow ();
 
 private:
 	directoryServer 		&cas;
@@ -179,6 +179,7 @@ public:
 	const char *get_iocname() const			{ return this->iocname;}
 	inline void destroy ();
 	void show ( unsigned level );
+	void myshow ();
     const struct sockaddr_in getAddr()  const { return this->addr; }
     void set_port(int valIn) {this->addr.sin_port = valIn;}
 	void set_addr( chid chid);
