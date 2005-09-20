@@ -12,6 +12,17 @@ USR_CXXFLAGS += -DUSE_DENYFROM
 #HOST_OPT=NO
 #endif
 
+# Purify
+#PURIFY=YES
+#ifeq ($(PURIFY),YES)
+#ifeq ($(OS_CLASS),solaris)
+#PURIFY_FLAGS = -first-only -chain-length=26 -max_threads=256
+## Put the cache files in the appropriate bin directory
+#PURIFY_FLAGS += -always-use-cache-dir -cache-dir=$(shell $(PERL) $(TOP)/config/fullPathName.pl .)
+#DEBUGCMD = purify $(PURIFY_FLAGS)
+#endif
+#endif
+
 # turns warnings into errors
 #USR_CXXFLAGS = +p
 

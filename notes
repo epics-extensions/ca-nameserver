@@ -95,3 +95,5 @@ Mon Jun 27 11:18:39 CDT 2005 - 2.0.0.9
 Thu Jun 30 13:49:36 CDT 2005
 	Add non zero test for print of home_dir, log_file, fileName, pvlist_file.
 
+Mon Sep 19 13:27:29 CDT 2005
+	Added delay before reading pvlist file after an ioc heartbeat reconnect.

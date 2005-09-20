@@ -20,10 +20,10 @@
 #define NS_VERSION       2
 #define NS_REVISION      0
 #define NS_MODIFICATION  0
-#define NS_UPDATE_LEVEL  9
+#define NS_UPDATE_LEVEL  10
 
 
-#define NS_VERSION_STRING "Nameserver Version 2.0.0.9"
+#define NS_VERSION_STRING "Nameserver Version 2.0.0.10"
 
 #define NS_CREDITS_STRING  \
           "Developed at Thomas Jefferson National Accelerator Facility\n" \

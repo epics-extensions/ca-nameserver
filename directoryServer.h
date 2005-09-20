@@ -102,13 +102,16 @@ public:
 	{
 		this->size = sizeIn;
 		this->read_tries = 0;
+		this->connectTime = time(NULL);
 	}
 	int read_tries;
 	int get_size() {return size;}
+	int get_connectTime() {return connectTime;}
 	pIoc *get_pIoc() 	{ return pI; }
 	void set_size(int sizeIn) {this->size = sizeIn;}
 private:
 	pIoc *pI;
+	time_t connectTime;
 	int size;
 };
 #endif

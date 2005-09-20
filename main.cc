@@ -30,6 +30,8 @@ static char *rcsid="$Header$";
 #define TRUE 1
 #endif
 
+#define WAITSECONDS 5
+
 //prototypes
 static int parseDirectoryFile (const char *pFileName);
 static int parseDirectoryFP (FILE *pf, const char *pFileName, int first, pIoc* pI);
@@ -338,6 +340,9 @@ static void processReconnectingIocs (){
 	filewait *pFW;
 	filewait *pprevFW=0;
 	int size = 0;
+    time_t now,mtime;
+
+    now = time(0);
 	tsSLIter<filewait> iter2=pCAS->fileList.firstIter();
 	while(iter2.valid()) {
 		tsSLIter<filewait> tmp = iter2;
@@ -345,6 +350,8 @@ static void processReconnectingIocs (){
 		pFW=iter2.pointer();
 		const char *file_to_wait_for;
 		file_to_wait_for = pFW->get_pIoc()->get_pathToList();
+		// Delay test for WAITSECONDS
+        if ( now <= (pFW->get_connectTime()+WAITSECONDS) ) continue;
 		// We're waiting to get the filesize the same twice in a row.
 		// This is at best a poor test to see if the ioc has finished writing signal.list.
 		// Better way would be to find a token at the end of the file but signal.list
@@ -662,6 +669,7 @@ static int parseDirectoryFP (FILE *pf, const char *pFileName, int startup_flag, 
 		// xxx:heartbeat. On first_connect, we've already installed it. 
 		// On reconect, the heartbeat is still in the hashtable.
 		// This is faster than doing a strcmp on every signal read from the file.
+//if( !startup_flag) log_message(INFO,"Calling installPVName for %s \n", pvNameStr); fflush(stdout);
 		int failed = pCAS->installPVName( pvNameStr, pI);
 		if(failed == 1 ) {
 			have_a_heart ++;
@@ -1034,7 +1042,7 @@ static int remove_all_pvs(pIoc *pI)
     while ( (pve = pI->get_pvE()) ) {
 		pvNameStr = pve->get_name();
 		if ( removeAll || strcmp(checkStr,pvNameStr)) {
-//log_message(VERBOSE,"Removing %s \n", pvNameStr); fflush(stdout);
+//log_message(INFO,"Removing %s from %s\n", pvNameStr,iocName); fflush(stdout);
  			stringId id2(pvNameStr, stringId::refString);
  			pve2 = pCAS->stringResTbl.lookup(id2);
  			// if there is not a new pve (PV has not moved to another ioc)
@@ -1051,16 +1059,17 @@ static int remove_all_pvs(pIoc *pI)
 		}
 		else {
 		    if ( !strcmp(checkStr,pvNameStr)) {
-//log_message(VERBOSE, "heartbeat found while removing pvs %s\n",checkStr); fflush(stdout);
+//log_message(INFO, "heartbeat found while removing pvs %s from %s\n",checkStr,iocName); fflush(stdout);
 				pvEHeartbeat = pve;
 			}
 		}
     }
 	if (pvEHeartbeat) {
-//log_message(VERBOSE, "adding heartbeat back into %s pvEList\n",iocName); fflush(stdout);
+//log_message(INFO, "adding heartbeat back into %s pvEList\n",iocName); fflush(stdout);
 		// Add heartbeat pvE back into pvEList
 		pI->add(pvEHeartbeat);
 	}
+//log_message(INFO, "PV count is %d for ioc %s \n",ct,iocName); fflush(stdout);
 	return ct;
 }
 
