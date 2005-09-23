@@ -342,7 +342,6 @@ static void processReconnectingIocs (){
 	int size = 0;
     time_t now,mtime;
 
-    now = time(0);
 	tsSLIter<filewait> iter2=pCAS->fileList.firstIter();
 	while(iter2.valid()) {
 		tsSLIter<filewait> tmp = iter2;
@@ -351,6 +350,7 @@ static void processReconnectingIocs (){
 		const char *file_to_wait_for;
 		file_to_wait_for = pFW->get_pIoc()->get_pathToList();
 		// Delay test for WAITSECONDS
+        now = time(0);
         if ( now <= (pFW->get_connectTime()+WAITSECONDS) ) continue;
 		// We're waiting to get the filesize the same twice in a row.
 		// This is at best a poor test to see if the ioc has finished writing signal.list.
