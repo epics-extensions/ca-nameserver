@@ -351,7 +351,7 @@ static void processReconnectingIocs (){
 		file_to_wait_for = pFW->get_pIoc()->get_pathToList();
 		// Delay test for WAITSECONDS
         now = time(0);
-        if ( now <= (pFW->get_connectTime()+WAITSECONDS) ) continue;
+        if ( now > (pFW->get_connectTime()+WAITSECONDS) ) {
 		// We're waiting to get the filesize the same twice in a row.
 		// This is at best a poor test to see if the ioc has finished writing signal.list.
 		// Better way would be to find a token at the end of the file but signal.list
@@ -381,6 +381,7 @@ static void processReconnectingIocs (){
 		}
 		else {
 			log_message(ERROR,"Stat failed for %s because %s\n", file_to_wait_for, strerror(errno));
+		}
 		}
 		if (pFW) pprevFW = pFW;
 		iter2 = tmp;
