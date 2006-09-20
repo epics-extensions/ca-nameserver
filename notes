@@ -98,7 +98,11 @@ Thu Jun 30 13:49:36 CDT 2005
 Mon Sep 19 13:27:29 CDT 2005
 	Added delay before reading pvlist file after an ioc heartbeat reconnect.
 
-Wed Feb  1 11:46:31 CST 2006
+Wed Feb  1 11:46:31 CST 2006  - 2.0.0.10
 	Code modified to read all pvlist files before connecting heartbeat pvs.
 	Functions to try to reserve a low number file descriptor for fopens 
 	sometimes lost the low (<256 on solaris) fd to CA/CAS socket connections.
+
+Wed Sep 20 09:06:34 CDT 2006 - 2.0.0.11
+	Fixed ifdef filewait in directoryServer.c.
+	Changed default to NO filewait by commenting out option in Makefile.
