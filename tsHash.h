@@ -24,7 +24,7 @@ template <class T>
 class tsHash
 {
 private:
-	void* hash_table;
+	gphPvt* hash_table;
 	// friend class tsDLHashIter<T>;
 
 public:
