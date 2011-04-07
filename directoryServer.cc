@@ -43,7 +43,7 @@ extern "C" void sigusr1(int sig);
 
 pIoc::~pIoc()
 {
-	while ( pvE * pve = this->get_pvE() ) {
+	while ( this->get_pvE() ) {
 	}
 }
 
