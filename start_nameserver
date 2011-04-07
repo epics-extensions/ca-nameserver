@@ -3,7 +3,7 @@
 #setenv EPICS_CA_AUTO_ADDR_LIST NO
 
 # verbose
-#/usr/local/bin/nameserver/caDirServ -v
+#/usr/local/bin/nameserver/caDirServ -d 3
 
 # short test
 #/usr/local/bin/nameserver/caDirServ -f short.txt
