@@ -12,12 +12,11 @@
 # Command line arguments include: 
 #     -b broadcastfilename ......allow/deny unknown pv broadcasts from specified hosts" 
 #     -f filename ......modify the name of the default input file "pvDirectory.txt" 
-#     -d nnn.............turn on and set the level of PCAS debugging 
+#     -d nnn.............set the level of log messaging 0,1,...4 (2 is default) 
 #     -l logfilename ..requests that logging  be done and allows specification of logfile name 
 #     -c directory .......change operational directory 
 #     -s ....................use server mode 
 #     -h nnn ..............set hashtable size (default = 300,000) 
-#     -v ....................verbose mode 
 #     -n ....................iocname is name of signal list file (default: iocname is dirname)
 #     -x prefix .............pvPrefix for nameserver heartbeat and other pvs
 #     -p filename ......modify the name of the default pv broadcast list "pvList.txt" 
@@ -46,8 +45,7 @@ export EPICS_CAS_SERVER_PORT
 # -------      Start the nameserver in server mode
 #$HOME_DIR/caDirServ -n -s -l nameserver.log -c $HOME_DIR -b nameserver.broadcast &
 
-# -------      Start the namesever in verbose mode 
+# -------      Start the namesever
 #$HOME_DIR/caDirServ -n -l nameserver.log -c $HOME_DIR -b nameserver.broadcast &
 #$HOME_DIR/caDirServ -n -l nameserver.log -c $HOME_DIR &
-$HOME_DIR/caDirServ -n -l nameserver.log -c $HOME_DIR -b nameserver.broadcast &
 
