@@ -32,7 +32,6 @@ extern int outta_here;
 extern int start_new_log;
 extern int connected_iocs;
 extern int requested_iocs;
-extern int verbose;
 extern FILE *never_ptr;
 
 struct nsStats stats = { 0.0,0.0,0.0,0.0,0.0,0.0,0.0 };
@@ -214,8 +213,7 @@ extern "C" void sigusr1(int sig)
 		log_message (INFO,"********* SIGUSR1 \n");
 		// level=2 gets summary info
 		// level=10 gets ALL names ...be careful what you ask for...
-		if(verbose)level = 4;
-                else level = 2;
+                level = 2;
 		self->show(level);
 		log_message (INFO,"********* END SIGUSR1 report\n");
 		signal(SIGUSR1, sigusr1);

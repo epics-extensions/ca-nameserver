@@ -71,7 +71,6 @@ int start_new_log;		//!< flag indicating user wants to start a new log
 						//!< system("rm -r /usr/local/bin/nameserver/piocs");
 int connected_iocs;		//!< count of iocs which are currently connected
 int requested_iocs;		//!< count of iocs which we would like to be connected
-int verbose = 0;		//!< verbose mode off = 0, on = 1
 FILE *never_ptr;
 int filenameIsIocname = 0;  //!< Signal list filename is iocname (else basename dirname)
 
@@ -115,9 +114,6 @@ extern int main (int argc, char *argv[])
 	// Parse command line args.
 	for (i = 1; i<argc && !parm_error; i++) {
 		switch(c = argv[i][1]) {
-           case 'v':
-                verbose = 1;
-                break;
            case 'd':
 				if(++i>=argc) parm_error=1;
 				else {
@@ -161,8 +157,8 @@ extern int main (int argc, char *argv[])
 				else {
 					if(argv[i][0]=='-') parm_error=2;
 					else {
-                        log_file = argv[i];
-                        if (verbose) fprintf(stdout,"logging to file: %s\n",log_file);
+						log_file = argv[i];
+						log_message(INFO, "logging to file: %s\n",log_file);
 						logging_to_file = 1;
 					}
 				}
@@ -173,7 +169,7 @@ extern int main (int argc, char *argv[])
 					if(argv[i][0]=='-') parm_error=2;
 					else {
 						pvlist_file=argv[i];
-                        if (verbose) fprintf(stdout,"pvlist file: %s\n",pvlist_file);
+						log_message(INFO, "pvlist file: %s\n",pvlist_file);
 					}
 				}
 				break;
