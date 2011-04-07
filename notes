@@ -111,3 +111,7 @@ Tue Oct 27 16:07:18 CDT 2009 - R2-0-0-12
 	Changed "void* hash_table;" to "gphPvt* hash_table;" in tsHash.h for 
 	build with R3.14.11.
 
+Thu Apr  7 14:27:28 CDT 2011 - R2-0-0-13
+	Changed -d <n> command line option to control log messaging level. 
+	The higher the more messages.  Removed -v verbose output mode.
+	Changed ca_pend_io delay value to .001.
