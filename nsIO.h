@@ -3,12 +3,12 @@
  
 #include "epicsTime.h"
 
-#define VERBOSE 0
-#define DEBUG 1
+#define DEBUG 4
+#define VERBOSE 3
 #define INFO 2
-#define WARNING 3
-#define WARN 3
-#define ERROR 4
+#define WARNING 1
+#define WARN 1
+#define ERROR 0
 
 
 int cd_home_dir(const char* const home_dir);

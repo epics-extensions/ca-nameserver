@@ -271,7 +271,7 @@ void log_message(int level,const char* fmt,...)
     fflush(stdout);
     fflush(stderr);
 
-    if (level < log_level) return;
+    if (level > log_level) return;
 
     va_start(vargs,fmt);
     vsprintf(text,fmt,vargs);
