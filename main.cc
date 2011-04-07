@@ -48,7 +48,9 @@ static int remove_all_pvs(pIoc *pI);
 static int add_all_pvs(pIoc *pI);
 static char *iocname(int isFilname,char *pPath);
 static void processPendingList (epicsTime now,double tooLong);
+#ifdef JS_FILEWAIT
 static void processReconnectingIocs ();
+#endif
 static int connectIocHeartbeat(pIoc *pI);
 static int connectAllIocHeartbeats();
 static int cleanup ( pIoc *pIoc);
@@ -80,7 +82,7 @@ int filenameIsIocname = 0;  //!< Signal list filename is iocname (else basename 
 extern int main (int argc, char *argv[])
 {
 	// Runtime option args:
-	unsigned 	debugLevel = 0u;
+	int 		debugLevel = 2;
 	char		*fileName;					//!< input filename
 	char		*log_file;					//!< log filename
 	char		*home_dir;					//!< home directory
@@ -122,6 +124,7 @@ extern int main (int argc, char *argv[])
 					if(argv[i][0]=='-') parm_error=2;
 					else {
 						debugLevel=atoi(argv[i]);
+						set_log_level(debugLevel);
 					}
 				}
 				break;
@@ -295,7 +298,7 @@ extern int main (int argc, char *argv[])
 
 		while (!outta_here) {
 			fileDescriptorManager.process(delay);
-			ca_pend_event(1e-12);
+			ca_pend_event(.001);
 			//ca_poll();
 
 #ifdef JS_FILEWAIT
@@ -971,7 +974,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 			while(iter.valid()) {
 				pNN=iter.pointer();
 				if(!strcmp(pNN->get_name(), pvNameStr )) {
-					if(verbose)log_message(INFO,"Removed %s from pending\n", pvNameStr);
+					log_message(VERBOSE,"Removed %s from pending\n", pvNameStr);
 					if (pprevNN) pCAS->nameList.remove(*pprevNN);
 					else pCAS->nameList.get();
 					delete pNN;
