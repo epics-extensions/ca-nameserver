@@ -127,7 +127,7 @@ void pIoc::show( unsigned level)
 {
     if ( level >= 1u ) {
         printf ( "pIoc: name=%s  status=%d \n",this->iocname,this->status);
-        if ( level >= 5u ) {
+        if ( level > 5u ) {
                 tsSLIter<pvEIoc> iter=this->pvEList.firstIter();
                 while(iter.valid()) {
                     printf ("	%s\n", iter.pointer()->get_pvE()->get_name() );
@@ -214,8 +214,8 @@ extern "C" void sigusr1(int sig)
 		log_message (INFO,"********* SIGUSR1 \n");
 		// level=2 gets summary info
 		// level=10 gets ALL names ...be careful what you ask for...
-		if(verbose)level = 5;
-        else level = 2;
+		if(verbose)level = 4;
+                else level = 2;
 		self->show(level);
 		log_message (INFO,"********* END SIGUSR1 report\n");
 		signal(SIGUSR1, sigusr1);
@@ -278,7 +278,7 @@ int directoryServer::installNeverName(const char *pName)
 		int resLibStatus;
 		resLibStatus = this->neverResTbl.add(*pnev);
 		if (resLibStatus==0) {
-			if(verbose)log_message (INFO, "added %s to never table\n", pName);
+			log_message (DEBUG, "added %s to never table\n", pName);
 			return(0);
 		}
 		else {
@@ -309,7 +309,7 @@ pIoc * directoryServer::installIocName(const char *pIocName, const char *pPath)
 		int resLibStatus;
 		resLibStatus = this->iocResTbl.add(*pI);
 		if (resLibStatus==0) {
-			if(verbose)log_message (INFO, "added %s to ioc table\n", pIocName);
+			log_message (DEBUG, "added %s to ioc table\n", pIocName);
 			return(pI);
 		}
 		else {
@@ -345,8 +345,7 @@ int directoryServer::installPVName( const char *pName, pIoc *pI)
 	int resLibStatus;
 	resLibStatus = this->stringResTbl.add(*pve);
 	if (resLibStatus==0) {
-		if(verbose)
-			log_message (INFO, "Installed PV: %s  %s in hash table\n", pName, iocName);
+		log_message (DEBUG, "Installed PV: %s  %s in hash table\n", pName, iocName);
 		/* add this pvE to the ioc's pvEList */
 		if (pI) pI->add(pve);
 		return(0);
@@ -430,9 +429,10 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 	namenode	*pNN;
 	chid		chd;	
 	int 		i, len, status;
-    pvExistReturn pvReturn;
+	pvExistReturn pvReturn;
 
-//log_message (INFO, "directoryServer:pvExistTest name=%s\n",pPVName);
+
+	log_message (DEBUG, "directoryServer:pvExistTest name=%s\n",pPVName);
 	stats.request++;
 
 	// strip the requested PV to just the record name, omit the field.
@@ -448,6 +448,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 
     len = strlen(shortPV);
 	if(len == 0){
+		log_message (VERBOSE,"Invalid PV name %s\n",pPVName);
 		return pverDoesNotExistHere;
 	}
 
@@ -458,8 +459,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 		// Found pv in pv hash table. Check to see if ioc is up.
 		pI = pve->get_pIoc();
 		if(!pI) {
-			if(verbose)
-				log_message (VERBOSE,"PV found and Ioc error for %s\n",shortPV);
+			log_message (DEBUG,"PV found and Ioc error for %s\n",shortPV);
 			stats.ioc_error++;
 			return pverDoesNotExistHere;
 		}
@@ -475,17 +475,15 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			    log_message (INFO,"ADDR <%s>\n", inet_ntoa(tin.sin_addr));
 */
 
-				if(verbose)
-					log_message (VERBOSE,"PV found and Ioc up for %s\n",shortPV);
-//log_message (INFO,"ADDR <%s> %s  ", inet_ntoa(((sockaddr_in)pI->getAddr()).sin_addr),shortPV);
-//log_message (INFO,"ADDR <%d> \n", pI->getAddr().sin_port); 
+				log_message (VERBOSE,"PV found and Ioc up for %s\n",shortPV);
+//log_message (VERBOSE,"ADDR <%s> %s  ", inet_ntoa(((sockaddr_in)pI->getAddr()).sin_addr),shortPV);
+//log_message (VERBOSE,"ADDR <%d> \n", pI->getAddr().sin_port); 
 				return pvExistReturn (caNetAddr(pI->getAddr()));
 	
 			}
 			else {
 				stats.ioc_down++;
-				if(verbose)
-					log_message (VERBOSE,"PV found and Ioc down for %s\n",shortPV);
+				log_message (VERBOSE,"PV found and Ioc down for %s\n",shortPV);
 				return pverDoesNotExistHere;
 			}
 		}
@@ -493,12 +491,10 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 	else if (!pve) {
 
 		// See if pv is a nameserver pv.
-//log_message (INFO,"=====Calling pvServer::pvExistTest\n");
 		pvReturn = this->pvServer::pvExistTest (ctx,pPVName);
 		if(pvReturn.getStatus() == pverExistsHere){
 			stats.hit++;
-			if(verbose)
-				log_message (VERBOSE,"Nameserver PV found for %s\n",pPVName);
+			log_message (VERBOSE,"Nameserver PV found for %s\n",pPVName);
 			return pverExistsHere;
 		}
 
@@ -508,14 +504,13 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			pNN=iter.pointer();
 			if(!strcmp(pNN->get_name(), shortPV)){
 				stats.pending++;
-				if(verbose)
-					log_message (VERBOSE,"Connection pending for %s\n", shortPV);
+				log_message (VERBOSE,"Connection pending for %s\n", shortPV);
 				return (pverDoesNotExistHere);
 			}
 			iter++;
 		}
 		// Can we broadcast for the requested pv.
-        if (this->pgateAs && this->pgateAs->isDenyFromListUsed()) {
+		if (this->pgateAs && this->pgateAs->isDenyFromListUsed()) {
 			char *ptr;
 			char ioc[HOST_NAME_SZ]="";
 
@@ -527,14 +522,12 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 
 			if (this->pgateAs && !this->pgateAs->findEntry(shortPV,ioc)) {
 				stats.broadcast_denied++;
-				if(verbose)
-					log_message (VERBOSE,"CA search broadcast denied from host for %s\n", shortPV);
+				log_message (VERBOSE,"CA search broadcast denied from host %s for %s\n", ioc, shortPV);
 				return (pverDoesNotExistHere);
 			}
 		} else {
 			if (this->pgateAs && !this->pgateAs->findEntry(shortPV)) {
-				if(verbose)
-					log_message (VERBOSE,"CA search broadcast denied for %s\n", shortPV);
+				log_message (VERBOSE,"CA search broadcast denied for %s\n", shortPV);
 				stats.broadcast_denied++;
 				return (pverDoesNotExistHere);
 			}
@@ -556,8 +549,7 @@ pvExistReturn directoryServer::pvExistTest (const casCtx& ctx,
 			pNN->set_otime();
 			// Add this pv to the list of pending pv connections 
 			this->addNN(pNN);
-			if(verbose)
-				log_message (VERBOSE, "CA search broadcasting for %s\n", shortPV);
+			log_message (VERBOSE, "CA search broadcasting for %s\n", shortPV);
 			stats.broadcast++;
 			return (pverDoesNotExistHere);
 		}
@@ -593,13 +585,7 @@ void directoryServer::show (unsigned level) const
     this->pvServer::show(level);
 
 	fprintf(stdout,"Diag time: %s\n", asctime(&ansiDate.ansi_tm));
-	fprintf(stdout, "PV Hash Table:\n");
-	this->stringResTbl.show(level);
-	fprintf(stdout, "\n");
-
-
 	never_ptr = reserve_fd_fopen("./never.log", "w");
-	fprintf(stdout, "Never Hash Table:\n");
 
 	// Create a ptr to the fn we're gonna call.
 	void (never::*fptr)() = &never::myshow;
@@ -613,15 +599,15 @@ void directoryServer::show (unsigned level) const
 	this->neverResTbl.show(level);
 	fprintf(stdout, "\n");
 
-	if (verbose) ((resTable<pIoc,stringId>* )&this->iocResTbl)->traverse(&pIoc::myshow); 
+	if (level>5) ((resTable<pIoc,stringId>* )&this->iocResTbl)->traverse(&pIoc::myshow); 
 
 	fprintf(stdout, "Ioc Hash Table:\n");
 	this->iocResTbl.show(level);
 	fprintf(stdout, "\n");
 
-	if (verbose) ((resTable<pvE,stringId>* )&this->stringResTbl)->traverse(&pvE::myshow); 
+	if (level>5) ((resTable<pvE,stringId>* )&this->stringResTbl)->traverse(&pvE::myshow); 
 
-	fprintf(stdout, "Name Hash Table:\n");
+	fprintf(stdout, "PV Name Hash Table:\n");
 	this->stringResTbl.show(level);
 	fprintf(stdout, "\n");
 
