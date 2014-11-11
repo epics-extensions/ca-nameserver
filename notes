@@ -115,3 +115,6 @@ Thu Apr  7 14:27:28 CDT 2011 - R2-0-0-13
 	Changed -d <n> command line option to control log messaging level. 
 	The higher the more messages.  Removed -v verbose output mode.
 	Changed ca_pend_io delay value to .001.
+
+Tue Nov 11 15:34:18 CST 2014
+	Changed asHost library name to dbCore for R3.15 base.
