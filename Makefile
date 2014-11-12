@@ -36,7 +36,11 @@ USR_CXXFLAGS += -DUSE_DENYFROM
 PROD_LIBS	+= regex
 PROD_LIBS	+= cas
 #PROD_LIBS	+= cas_js
+ifdef BASE_3_15
 PROD_LIBS	+= dbCore
+else
+PROD_LIBS	+= asHost
+endif
 PROD_LIBS	+= ca
 PROD_LIBS	+= gdd
 PROD_LIBS	+= Com
