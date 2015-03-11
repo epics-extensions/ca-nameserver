@@ -43,6 +43,7 @@ endif
 PROD_LIBS	+= ca
 PROD_LIBS	+= gdd
 PROD_LIBS	+= Com
+PROD_LIBS	+= regex
 regex_DIR  = $(INSTALL_LIB)
 #cas_js_DIR  = $(EPICS_BASE_LIB)
 cas_DIR  = $(EPICS_BASE_LIB)
