@@ -8,7 +8,9 @@
 
 #include <stdlib.h>
 #include <sys/stat.h>
+#ifndef WIN32
 #include <unistd.h>
+#endif
 #include <stdarg.h>
 #include <stdio.h>
 #include <time.h>
@@ -27,6 +29,8 @@
 #define MAX_TIME_CHARS 30
 
 static int log_level = 2;
+
+#ifndef WIN32
 
 /*! \brief Change to home directory 
  *
@@ -165,6 +169,7 @@ void increase_process_limits()
 
 }
 
+#endif
 
 /*! \brief logging code shamelessly stolen from gateway code!
  *
@@ -172,7 +177,7 @@ void increase_process_limits()
 */
 void setup_logging(char *log_file)
 {
-#ifndef _WIN32
+#ifndef WIN32
 	struct		stat sbuf;			//old logfile info
 	char 		cur_time[200];
 	time_t t;

@@ -57,7 +57,7 @@ static int cleanup ( pIoc *pIoc);
 
 // globals
 directoryServer	*pCAS;
-#ifndef _WIN32
+#ifndef WIN32
 pid_t child_pid =0;		//!< pid of the child process
 pid_t parent_pid =0;		//!< pid of the parent process
 pid_t parent_pgrp =0;		//!< pid of the parent process
@@ -97,7 +97,7 @@ extern int main (int argc, char *argv[])
 	int			logging_to_file = 0;			//!< default is logging to terminal
 	//int			nPV = DEFAULT_HASH_SIZE;		//!< default pv hash table size
 	int			pv_count;						//!< count of pv's in startup lists
-#ifndef _WIN32
+#ifndef WIN32
 	int			daemon_status;					//!< did the forks work?
 #endif
 	epicsTime   first;                  //!< time loading begins
@@ -208,7 +208,7 @@ extern int main (int argc, char *argv[])
     }
 
 
-#ifndef _WIN32
+#ifndef WIN32
 	if(server_mode) {
 		log_message(INFO, "Starting daemon\n");
 		daemon_status = start_daemon();
@@ -219,19 +219,17 @@ extern int main (int argc, char *argv[])
 	else{
 		parent_pid=getpid();
 	}
-#endif
 
     if ( cd_home_dir(home_dir) == -1) {
 		return -1;
 	}
 
-#ifndef WIN32
     create_killer_script(parent_pid, home_dir, pvlist_file, log_file, fileName);
-#endif
+
     create_restart_script();
 
     increase_process_limits();
-
+#endif
     setup_logging(log_file);
 
     //time  in  seconds since 00:00:00 UTC, January 1, 1970.
@@ -468,10 +466,11 @@ static void processPendingList (epicsTime now,double tooLong){
 
 }
 
-/*! \brief Fork twice to create a daemon process with no associated terminal
+#ifndef WIN32
+
+/*! \part that watches the nameserver process and ensures that it stays up
  *
 */
-#ifndef _WIN32
 static int start_daemon()
 {
 	signal(SIGCHLD, sig_chld);
@@ -481,11 +480,7 @@ static int start_daemon()
 			perror("Cannot create daemon process");
 			return -1;
 		case 0:		//child
-#if defined(darwin)
-			setpgrp(0,parent_pgrp);
-#else
-			setpgrp();
-#endif
+			setpgid (0, 0);
 			setsid();
 			break;
 		default:	//parent
@@ -516,10 +511,8 @@ static int start_daemon()
 		return 0;
 	}
 }
-#endif
 
 
-#ifndef _WIN32
 /*! \brief  Prevent core dumps which delay restart
  *
 */
@@ -535,13 +528,11 @@ extern "C" void sig_dont_dump(int sig)
 	}
 	exit(0);
 }
-#endif
-	
+
 
 /*! \brief  Allow termination of parent process to terminate the child.
  *
 */
-#ifndef _WIN32
 extern "C" void kill_the_kid(int )
 {
         kill(child_pid, SIGTERM);
@@ -1011,7 +1002,7 @@ extern "C" void registerCA(void * /* pfdctx */,int fd, int condition)
         remove_CA_mon( fd);
 }
 
-#ifndef _WIN32
+#ifndef WIN32
 /*! \brief Callback for death of a child
  *
  * When run as a daemon, death of a child shakes the parent out of pause status.
@@ -1022,6 +1013,8 @@ extern "C" void sig_chld(int )
 #ifdef SOLARIS
     while(waitpid(-1,NULL,WNOHANG)>0);
 #elif defined linux 
+    while(waitpid(-1,NULL,WNOHANG)>0);
+#elif defined CYGWIN32
     while(waitpid(-1,NULL,WNOHANG)>0);
 #else
     while(wait3(NULL,WNOHANG,NULL)>0);
@@ -1141,8 +1134,7 @@ bool identicalAddress ( struct sockaddr_in ipa1, struct sockaddr_in ipa2 )
     return 0;
 }
 
-#if defined(_WIN32) || defined(darwin)
-char *basename(char *filename)
+static char *basename_st(char *filename)
 {
    char *pbackslash = strrchr(filename,'\\');
    char *pslash = strrchr(filename,'/');
@@ -1151,7 +1143,7 @@ char *basename(char *filename)
    return (char *)filename;
 }
 
-char *dirname(char *filename)
+static char *dirname_st(char *filename)
 {
    char *pslash = strrchr(filename, '/');
    char *pbackslash = strrchr(filename, '\\');
@@ -1159,11 +1151,10 @@ char *dirname(char *filename)
    if (pbackslash ) *pbackslash = '\0';
    return (char *)filename;
 }
-#endif
 
 static char *iocname(int isFilname,char *pPath) {
  return filenameIsIocname ? \
-	basename((char *)pPath): basename(dirname((char *)pPath));
+	basename_st((char *)pPath): basename_st(dirname_st((char *)pPath));
 }
 
  
