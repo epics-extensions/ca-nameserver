@@ -116,5 +116,9 @@ Thu Apr  7 14:27:28 CDT 2011 - R2-0-0-13
 	The higher the more messages.  Removed -v verbose output mode.
 	Changed ca_pend_io delay value to .001.
 
-Tue Nov 11 15:34:18 CST 2014
+Tue Nov 11 15:34:18 CST 2014 - R2-0-0-14
 	Changed asHost library name to dbCore for R3.15 base.
+	Changes for WIN32 build. Changed setpgrp to setpgid. 
+	Added change from Dr.Jeong Han Lee - changed function basename to basename_st
+	to avoid conflict with basename from string.h.
+
