@@ -5,7 +5,6 @@
  * \Revision History:
  * Initial release September 2001
 */
-static char *rcsid="$Header$";
 
 
 #include <fdManager.h>

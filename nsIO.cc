@@ -17,6 +17,7 @@
 
 #ifdef linux
 #include <sys/wait.h>
+#include <sys/resource.h>
 #endif
 
 #include "reserve_fd.h"
@@ -285,10 +286,7 @@ void log_message(int level,const char* fmt,...)
     epicsTime time = epicsTime::getCurrent ();
     time.strftime(buf,30,"%Y-%m-%d %H:%M:%S.%06f");
 
-    if (buf)
-      status=fprintf(stdout,"%s  %s",buf,text);
-    else
-      status=fprintf(stdout,"                            %s",text);
+    status=fprintf(stdout,"%s  %s",buf,text);
 
     if (status<0 )  {
       fprintf(stderr,"Can't write to log file: '%s' \n", text );

@@ -30,36 +30,16 @@
 #include <string.h>
 #include <stdlib.h>
 
-
-extern "C" {
 #include <ellLib.h>
 #include "asLib.h"
 #include "errMdef.h"
 #include "gpHash.h"
-#include "asTrapWrite.h"	
-}
+#include "asTrapWrite.h"
 
-// KE: Put these here to avoid redefining RE_DUP_MAX as defined in
-// regex.h
 #include "tsSLList.h"
 #include "tsHash.h"
 #include "aitTypes.h"
-
-extern "C" {
-// Patch for regex.h not testing __cplusplus, only __STDC__
-// KE: This leaves __STDC_ changed in some cases
-#ifndef __STDC__
-#    define __STDC__ 1
-#    include "regex.h"
-#    undef __STDC__
-#else
-#    if ! __STDC__
-#        undef __STDC__
-#        define __STDC__ 1
-#    endif
-#    include "regex.h"
-#endif
-}
+#include "regex.h"
 
 /*
  * Standard FALSE and TRUE macros

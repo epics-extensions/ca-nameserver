@@ -43,10 +43,3 @@ int reserve_fd_fclose(FILE *stream)
 
     return ret;
 }
-
-static FILE* reserve_fd_openReserveFile(void)
-{
-    reserveFp=::fopen(NS_RESERVE_FILE,"w");
-    return reserveFp;
-}
-

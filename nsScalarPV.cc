@@ -26,7 +26,6 @@ void nsScalarPV::scan()
     caStatus        status;
     smartGDDPointer pDD;
     float           newValue;
-    float           limit;
     int             gddStatus;
 
     //

@@ -94,7 +94,6 @@ extern int main (int argc, char *argv[])
 	unsigned 	hash_table_size = 0;			//!< user requested size
 	aitBool		forever = aitTrue;
  	epicsTime	begin(epicsTime::getCurrent());
-	int			logging_to_file = 0;			//!< default is logging to terminal
 	//int			nPV = DEFAULT_HASH_SIZE;		//!< default pv hash table size
 	int			pv_count;						//!< count of pv's in startup lists
 #ifndef WIN32
@@ -159,7 +158,6 @@ extern int main (int argc, char *argv[])
 					else {
 						log_file = argv[i];
 						log_message(INFO, "logging to file: %s\n",log_file);
-						logging_to_file = 1;
 					}
 				}
                 break;
@@ -175,7 +173,6 @@ extern int main (int argc, char *argv[])
 				break;
            case 's':
                 server_mode = 1;
-				logging_to_file = 1;
                 break;
            case 'h':
 				if(++i>=argc) parm_error=1;

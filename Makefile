@@ -34,18 +34,17 @@ USR_CXXFLAGS += -DUSE_DENYFROM
 #CCC_NORMAL = $(CCC)
 
 PROD_LIBS	+= cas
-#PROD_LIBS	+= cas_js
+
 ifdef BASE_3_15
 PROD_LIBS	+= dbCore
 else
 PROD_LIBS	+= asHost
 endif
+
 PROD_LIBS	+= ca
 PROD_LIBS	+= gdd
 PROD_LIBS	+= Com
-PROD_LIBS	+= regex
-regex_DIR  = $(INSTALL_LIB)
-#cas_js_DIR  = $(EPICS_BASE_LIB)
+
 cas_DIR  = $(EPICS_BASE_LIB)
 ca_DIR  = $(EPICS_BASE_LIB)
 asHost_DIR  = $(EPICS_BASE_LIB)
