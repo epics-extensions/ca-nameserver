@@ -18,16 +18,15 @@
 #define INCversionh 1
 
 #define NS_VERSION       2
-#define NS_REVISION      0
+#define NS_REVISION      1
 #define NS_MODIFICATION  0
-#define NS_UPDATE_LEVEL  13
 
-
-#define NS_VERSION_STRING "Nameserver Version 2.0.0.13"
+#define stringOf(TOKEN) #TOKEN
+#define NS_VERSION_STRING "Nameserver Version " \
+    stringOf(NS_VERSION) "." stringOf(NS_REVISION) "." stringOf(NS_MODIFICATION)
 
 #define NS_CREDITS_STRING  \
-          "Developed at Thomas Jefferson National Accelerator Facility\n" \
-          "and at Argonne National Laboratory \n\n" \
-          "Authors: Joan Sage and Janet Anderson\n\n"
+    "Developed at Thomas Jefferson National Accelerator Facility and\n" \
+    "Argonne National Laboratory, by Joan Sage and Janet Anderson\n\n"
 
 #endif /* INCversionh */
