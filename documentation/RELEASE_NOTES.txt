@@ -5,6 +5,12 @@ Fri Nov 22 09:20:21 CST 2002  -   caDirServ.20021001
 	Added '-n' option: Input Signal list filename is iocname 
 	(else iocname is basename(dirname(name)) )
 
+Thu Jul  3 12:46:48 CDT 2003  - Version 1.2
+	Changes from previous version:
+	Remove some logging prints
+	Fix bug for no heartbeat in signal.list found by Janet Anderson
+	Compile options for other labs
+
 Fri Jul 23 09:30:31 CDT 2004
 	Changes for R3.14 build
 		Changes for tsSLList  (init and destroyAllEntries)
@@ -121,4 +127,3 @@ Mon May 11 15:34:18 CST 2014 - R2-0-0-14
 	Changes for WIN32 build. Changed setpgrp to setpgid. 
 	Added change from Dr.Jeong Han Lee - changed function basename to basename_st
 	to avoid conflict with basename from string.h.
-
