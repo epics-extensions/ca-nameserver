@@ -774,7 +774,6 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 	pIoc *pI;
     char pvNameStr[PV_NAME_SZ];
 	char *ptr;
-	int 	removed = 0;
 	char iocname[HOST_NAME_SZ];
 	ca_get_host_name(args.chid,iocname,HOST_NAME_SZ);
 	pvE 	*pve;
@@ -802,7 +801,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 				log_message(INFO,"CONN DOWN for %s\n", pI->get_iocname()); fflush(stdout);
 				// Remove all pvs now
 				// On reconnect this ioc may have a different port
-				removed = remove_all_pvs(pI);
+				remove_all_pvs(pI);
 				pI= pCAS->iocResTbl.remove(*pI);
 				if(pI) delete pI;
 	
@@ -885,7 +884,7 @@ extern "C" void processChangeConnectionEvent(struct connection_handler_args args
 			int chid_status = ca_state(args.chid);
 			if(chid_status != 3)
 				ca_clear_channel(args.chid);
-		}	
+		}
 	}
 	fflush(stderr);
 	fflush(stdout);
@@ -1051,9 +1050,10 @@ static char *dirname_st(char *filename)
    return (char *)filename;
 }
 
-static char *iocname(int isFilname,char *pPath) {
- return filenameIsIocname ? \
-	basename_st((char *)pPath): basename_st(dirname_st((char *)pPath));
+static char *iocname(int isFilename,char *pPath) {
+	return isFilename ?
+		basename_st((char *)pPath) :
+		basename_st(dirname_st((char *)pPath));
 }
 
  

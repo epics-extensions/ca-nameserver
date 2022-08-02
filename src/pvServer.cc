@@ -140,7 +140,6 @@ pvExistReturn pvServer::pvExistTest
         return pverDoesNotExistHere;
     }
 
-    pvInfo & pvi = pPVE->getInfo();
 //printf ("PV exists here: %s\n",pPVName);
     return pverExistsHere;
 }

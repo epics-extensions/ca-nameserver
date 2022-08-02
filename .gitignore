@@ -1,6 +1,6 @@
-configure/*.local
-bin/
-**/O.*
+/configure/*.local
+/bin/
+O.*
 nameserver.*
 never.log
-log.file
+log.file*
