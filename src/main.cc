@@ -575,11 +575,11 @@ static int parseDirectoryFile (const char *pFileName)
 		if (fscanf(pf, " %s ", input) != 1) break;
 		if(input[0] == '#') continue;
 
-		fileNameCopy = strdup(input); 
+		fileNameCopy = strdup(input);
 		if (!fileNameCopy) return 0;
 		pIocname = iocname(filenameIsIocname, fileNameCopy);
-		free(fileNameCopy);
 		strncpy (iocName,pIocname,HOST_NAME_SZ-1);
+		free(fileNameCopy);
 		iocName[HOST_NAME_SZ-1]='\0';
 		stringId id(iocName, stringId::refString);
 
