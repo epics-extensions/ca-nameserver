@@ -6,7 +6,7 @@
 * Copyright (c) 2002 The Regents of the University of California, as
 * Operator of Los Alamos National Laboratory.
 * This file is distributed subject to a Software License Agreement found
-* in the file LICENSE that is included with this distribution. 
+* in the file LICENSE that is included with this distribution.
 \*************************************************************************/
 
 #ifndef _GATEAS_H_
@@ -39,7 +39,12 @@
 #include "tsSLList.h"
 #include "tsHash.h"
 #include "aitTypes.h"
-#include "regex.h"
+
+#ifdef USE_PCRE
+#  include <pcre.h>
+#else
+#  include "regex.h"
+#endif
 
 /*
  * Standard FALSE and TRUE macros
@@ -54,12 +59,6 @@
 #define GATE_DENY_FIRST 0
 #define GATE_ALLOW_FIRST 1
 
-#if 0
-// Function prototypes
-void gateAsCa(void);
-void gateAsCaClear(void);
-#endif
-
 class gateVcData;
 class gateAsEntry;
 class gateAsLine;
@@ -67,7 +66,7 @@ class gateAsLine;
 typedef tsSLList<gateAsEntry> gateAsList;
 typedef tsSLList<gateAsLine> gateLineList;
 
-//  ----------------- AS host (to build up host list) ------------------ 
+//  ----------------- AS host (to build up host list) ------------------
 
 #ifdef USE_DENYFROM
 class gateAsHost;
@@ -82,7 +81,7 @@ public:
 };
 #endif
 
-//  ------------ AS entry (deny or deny from or alias or allow) ------------ 
+//  ------------ AS entry (deny or deny from or alias or allow) ------------
 
 class gateAsEntry : public tsSLNode<gateAsEntry>
 {
@@ -97,18 +96,28 @@ public:
 	  int line);
 #endif
 	long removeMember(void);
-	
+
 	void getRealName(const char* pv, char* real, int len);
-	
+
 	const char* pattern;
 	const char* alias;
 	const char* group;
 	int level;
 	ASMEMBERPVT asmemberpvt;
+#ifdef USE_PCRE
+	pcre* pat_buff;
+	int substrings;
+	int ovecsize;
+	int *ovector;
+#else
 	char pat_valid;
 	struct re_pattern_buffer pat_buff;
 	struct re_registers regs;
-	
+#endif
+#ifdef USE_NEG_REGEXP
+        bool negate_pattern;
+#endif
+
 private:
 	aitBool compilePattern(int line);
 };
@@ -121,12 +130,12 @@ public:
 	gateAsClient(void);
 	gateAsClient(gateAsEntry *pase, const char *user, const char *host);
 	~gateAsClient(void);
-	
+
 	aitBool readAccess(void)  const
 	  { return (asclientpvt==NULL||asCheckGet(asclientpvt))?aitTrue:aitFalse; }
 	aitBool writeAccess(void) const
 	  { return (asclientpvt&&asCheckPut(asclientpvt))?aitTrue:aitFalse; }
-	
+
 	gateAsEntry* getEntry(void)
 	  { return asentry; }
 
@@ -137,20 +146,20 @@ public:
 	long changeInfo(const char* user, const char* host)
 	  { return asChangeClient(asclientpvt,asentry->level,(char*)user,(char*)host);}
 #endif
-	
+
 	const char *user(void) { return (const char*)asclientpvt->user; }
 	const char *host(void) { return (const char*)asclientpvt->host; }
 	ASCLIENTPVT clientPvt(void) { return asclientpvt; }
-	
+
 	void setUserFunction(void (*ufunc)(void*),void* uarg)
 	  { user_arg=uarg; user_func=ufunc; }
-	
+
 private:
 	ASCLIENTPVT asclientpvt;
 	gateAsEntry* asentry;
 	void* user_arg;
 	void (*user_func)(void*);
-	
+
 public:
 	static void clientCallback(ASCLIENTPVT p, asClientStatus s);
 };
@@ -159,7 +168,7 @@ class gateAsLine : public tsSLNode<gateAsLine>
 {
 public:
 	gateAsLine(void) : buf(NULL) { }
-	gateAsLine(const char* line, int len, tsSLList<gateAsLine>& n) :
+	gateAsLine(const char* line, size_t len, tsSLList<gateAsLine>& n) :
 		buf(new char[len+1])
 	{
 		strncpy(buf,line,len+1);
@@ -184,7 +193,7 @@ public:
 #else
 	inline gateAsEntry* findEntry(const char* pv);
 #endif
-	
+
 	int readPvList(const char* pvlist_file);
 	void report(FILE*);
 	long reInitialize(const char* as_file, const char* pvlist_file);
@@ -206,6 +215,9 @@ private:
 	long initialize(const char* as_file);
 	void clearAsList(gateAsList& list);
 	void clearAsList(gateLineList& list);
+#ifdef USE_DENYFROM
+	void clearHostList(gateHostList& list);
+#endif
 	gateAsEntry* findEntryInList(const char* pv, gateAsList& list) const;
 
 	// These are static only so they can be used in readFunc callback
@@ -215,7 +227,7 @@ private:
 	static FILE* rules_fd;
 
 public:
-	static int readFunc(char* buf, int max_size);
+	static int readFunc(char* buf, size_t max_size);
 };
 
 #ifdef USE_DENYFROM
@@ -225,7 +237,7 @@ inline gateAsEntry* gateAs::findEntry(const char* pv, const char* host)
 
 	if(host && deny_from_table.find(host,pl)==0 &&	// DENY FROM
 	   findEntryInList(pv, *pl)) return NULL;
-	
+
 	if(eval_order == GATE_ALLOW_FIRST &&			// DENY takes precedence
 	   findEntryInList(pv, deny_list)) return NULL;
 
