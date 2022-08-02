@@ -185,19 +185,6 @@ has been compiled with very old versions of EPICS which use channel access
 protocol version 4.4. This code has had to be recompiled to work with the
 nameserver.</font><font size=+1></font>
 <p><b><font size=+1>This release of the code includes minor modifications
-to logging. It also includes two #ifdef'd sections. The first, "JS_FILEWAIT",</font></b>
-<br><b><font size=+1>is no longer used at JLab. At one time, the nameserver
-would attempt to read incomplete signal.list files. Now our iocs write
-their files before ioc initialization and this delaying code is no longer
-needed here.&nbsp; The second #ifdef'd section, "PIOC", provides for serving
-PIOC variables which may be deleted without a loss of a heartbeat. The
-signal USR2 has been recoded as one way of handling these deletions.</font></b>
-<br>&nbsp;
-<br>&nbsp;
-<p><font size=+1>Please send bug reports, fixes or comments to:</font>
-<br><font size=+1>Joan Sage</font>
-<br><font size=+1>sage@jlab.org</font>
-<br>&nbsp;
-<br>&nbsp;
+to logging.</font></b>
 </body>
 </html>

@@ -48,9 +48,6 @@ static int remove_all_pvs(pIoc *pI);
 static int add_all_pvs(pIoc *pI);
 static char *iocname(int isFilname,char *pPath);
 static void processPendingList (epicsTime now,double tooLong);
-#ifdef JS_FILEWAIT
-static void processReconnectingIocs ();
-#endif
 static int connectIocHeartbeat(pIoc *pI);
 static int connectAllIocHeartbeats();
 static int cleanup ( pIoc *pIoc);
@@ -277,8 +274,6 @@ extern int main (int argc, char *argv[])
     lapsed = second-first;
     log_message(INFO,"Load time: %f sec\n", lapsed);
 
-//Begin PROPOSED CHANGE add an exec of a script to copy signal.list files to ./iocs
-
 	// Main loop
 	if (forever) {
 		// if delay = 0.0 select will not block)
@@ -292,28 +287,9 @@ extern int main (int argc, char *argv[])
 			ca_pend_event(.001);
 			//ca_poll();
 
-#ifdef JS_FILEWAIT
-			processReconnectingIocs ();
-#endif
 			if(start_new_log) {
-#ifdef PIOC
-				pIoc 		*pI;
-				stringId id("opbat1", stringId::refString);
-				pI = pCAS->iocResTbl.lookup(id);
-				remove_all_pvs(pI);
-				stringId id2("opbat2", stringId::refString);
-				pI = pCAS->iocResTbl.lookup(id2);
-				remove_all_pvs(pI);
-				stringId id3("devsys01", stringId::refString);
-				pI = pCAS->iocResTbl.lookup(id3);
-				remove_all_pvs(pI);
-				system("rm -r /usr/local/bin/nameserver/piocs");
-				start_new_log = 0;
-				log_message("INFO","REMOVE DONE\n");
-#else
 				start_new_log = 0;
 				setup_logging(log_file);
-#endif
 			}
 			// Is it time to purge the list of pending pv connections?
 			epicsTime		now(epicsTime::getCurrent());
@@ -328,65 +304,6 @@ extern int main (int argc, char *argv[])
 	delete pCAS;
 	return (0);
 }
-
-#ifdef JS_FILEWAIT
-static void processReconnectingIocs (){
-	int	pv_count;						//!< count of pv's in startup lists
-	// For each ioc on the linked list of reconnecting iocs
-	// see if the ioc finished writing the signal.list file?
-	struct stat sbuf;			
-	filewait *pFW;
-	filewait *pprevFW=0;
-	int size = 0;
-	int now = 0;
-
-	tsSLIter<filewait> iter2=pCAS->fileList.firstIter();
-	while(iter2.valid()) {
-		tsSLIter<filewait> tmp = iter2;
-		tmp++;
-		pFW=iter2.pointer();
-		const char *file_to_wait_for;
-		file_to_wait_for = pFW->get_pIoc()->get_pathToList();
-		// Delay test for WAITSECONDS
-        now = time(0);
-        if ( now > (pFW->get_connectTime()+WAITSECONDS) ) {
-		// We're waiting to get the filesize the same twice in a row.
-		// This is at best a poor test to see if the ioc has finished writing signal.list.
-		// Better way would be to find a token at the end of the file but signal.list
-		// files are also used by the old nameserver and can't be changed.
-		if(stat(file_to_wait_for, &sbuf) == 0) {
-			// size will be 0 first time thru
-			// So at least we will have a delay in having to get here a second time.
-			size = pFW->get_size();
-			if((sbuf.st_size == size) && (size != 0)) {
-				//log_message(INFO,"SIZE EQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
-				remove_all_pvs(pFW->get_pIoc());
-				pv_count = add_all_pvs(pFW->get_pIoc()); 
-				pFW->get_pIoc()->set_status(1);
-				if (pv_count >= 0 || pFW->read_tries >2 ) {
-					if (pv_count > 0) pCAS->generateBeaconAnomaly();
-                   	if(pprevFW) pCAS->fileList.remove(*pprevFW);
-					else pCAS->fileList.get();
-					delete pFW;
-					pFW =0;
-				} else {
-					pFW->read_tries++;
-				}
-			}
-			else{
-				pFW->set_size(sbuf.st_size);
-				//log_message(INFO,"UNEQUAL %s %d %d\n", file_to_wait_for, size, (int)sbuf.st_size);
-			}
-		}
-		else {
-			log_message(ERROR,"Stat failed for %s because %s\n", file_to_wait_for, strerror(errno));
-		}
-		}
-		if (pFW) pprevFW = pFW;
-		iter2 = tmp;
-	}
-}
-#endif
 
 static void processPendingList (epicsTime now,double tooLong){
  
@@ -753,9 +670,6 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 	const char *iocname;
 	pIoc *pI;
 	namenode *pNN;
-#ifdef JS_FILEWAIT
-	filewait *pFW;
-#endif
 
 	strncpy(pvname, ca_name(args.chid),PV_NAME_SZ-1);
 	pI = (pIoc*)ca_puser(args.chid);
@@ -813,21 +727,9 @@ extern "C" void WDprocessChangeConnectionEvent(struct connection_handler_args ar
 		}
 		// reconnection
 		else if (pI->get_status() == 2) { 
-#ifdef JS_FILEWAIT
-			// Add this ioc to the list of those to check status of file
-			// to prevent reading signal.list until writing by ioc is complete.
-			pFW = new filewait(pI, 0);
-			if(pFW == NULL) {
-				log_message(ERROR,"Failed to create filewait node %s\n", iocname);
-			}
-			else {
-				pCAS->addFW(pFW);
-			}
-#else
 			remove_all_pvs(pI);
 			add_all_pvs(pI); 
 			pI->set_status(1);
-#endif
 		} 
 		else {
 		}

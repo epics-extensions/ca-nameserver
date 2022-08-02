@@ -249,11 +249,6 @@ directoryServer::~directoryServer()
     while ( namenode * pNN = this->nameList.get() ) {
 		delete pNN;
 	}
-#ifdef JS_FILEWAIT
-    while ( filewait * pFW = this->fileList.get() ) {
-		delete pFW;
-	}
-#endif
 
     if (pgateAs) delete pgateAs;
 

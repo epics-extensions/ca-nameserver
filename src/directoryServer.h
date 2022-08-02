@@ -92,30 +92,6 @@ private:
 	int		rebroadcast;
 };
 
-#ifdef JS_FILEWAIT
-/*! \brief  Node for linked list of pv's reconnecting
-*/
-class filewait : public tsSLNode<filewait>
-{
-public:
-	filewait( pIoc * pIocIn, int sizeIn) : pI(pIocIn)
-	{
-		this->size = sizeIn;
-		this->read_tries = 0;
-		this->connectTime = time(NULL);
-	}
-	int read_tries;
-	int get_size() {return size;}
-	int get_connectTime() {return connectTime;}
-	pIoc *get_pIoc() 	{ return pI; }
-	void set_size(int sizeIn) {this->size = sizeIn;}
-private:
-	pIoc *pI;
-	time_t connectTime;
-	int size;
-};
-#endif
-
 
 /*! \brief  Node for an ioc's linked list of pv's
      Using the pvE was an easy way to avoid copying the pvname
@@ -214,10 +190,6 @@ public:
 	pIoc* installIocName ( const char *pIocName, const char *pPath);
 	int installNeverName (const char *pvname);
 	void addNN(namenode *pNN) {this->nameList.add(*pNN); }
-#ifdef JS_FILEWAIT
-	void addFW(filewait *pF) {this->fileList.add(*pF); }
-	tsSLList<filewait> fileList;			//!< list of signal.list files pending
-#endif
 	tsSLList<namenode> nameList;			//!< list of pv's with pending connections
 	resTable<pIoc,stringId> iocResTbl;	//!< hash of installed ioc's 
 	resTable<pvE,stringId> stringResTbl;	//!< hash of installed pv's

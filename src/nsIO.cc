@@ -69,12 +69,7 @@ void create_killer_script(pid_t parent_pid,const char* const home_dir,const char
     fprintf(fd,"# \n");
     fprintf(fd,"# use the following the get a PV summary report in log:\n");
     fprintf(fd,"#    kill -USR1 %d\n",sid);
-#ifdef PIOC
-    fprintf(fd,"# use the following to clear PIOC pvs from the nameserver:\n");
-    fprintf(fd,"# \t (valid pvs will automatically reconnect)\n");
-#else
     fprintf(fd,"# use the following to start a new logfile\n");
-#endif
     fprintf(fd,"#    kill -USR2 %d\n",sid);
 
     fprintf(fd,"# \n");
