@@ -34,7 +34,6 @@
 #include "asLib.h"
 #include "errMdef.h"
 #include "gpHash.h"
-#include "asTrapWrite.h"
 
 #include "tsSLList.h"
 #include "tsHash.h"
@@ -139,14 +138,6 @@ public:
 	gateAsEntry* getEntry(void)
 	  { return asentry; }
 
-#ifdef SUPPORT_OWNER_CHANGE
-    // Used in virtual function setOwner from casChannel, not called
-    // from Gateway.  It is a security hole to support this, and it is
-    // no longer implemented in base.
-	long changeInfo(const char* user, const char* host)
-	  { return asChangeClient(asclientpvt,asentry->level,(char*)user,(char*)host);}
-#endif
-
 	const char *user(void) { return (const char*)asclientpvt->user; }
 	const char *host(void) { return (const char*)asclientpvt->host; }
 	ASCLIENTPVT clientPvt(void) { return asclientpvt; }
@@ -238,7 +229,7 @@ inline gateAsEntry* gateAs::findEntry(const char* pv, const char* host)
 	if(host && deny_from_table.find(host,pl)==0 &&	// DENY FROM
 	   findEntryInList(pv, *pl)) return NULL;
 
-	if(eval_order == GATE_ALLOW_FIRST &&			// DENY takes precedence
+	if(eval_order == GATE_ALLOW_FIRST &&		// DENY takes precedence
 	   findEntryInList(pv, deny_list)) return NULL;
 
 	return findEntryInList(pv, allow_list);
@@ -254,11 +245,3 @@ inline gateAsEntry* gateAs::findEntry(const char* pv)
 #endif
 
 #endif /* _GATEAS_H_ */
-
-/* **************************** Emacs Editing Sequences ***************** */
-/* Local Variables: */
-/* tab-width: 4 */
-/* c-basic-offset: 4 */
-/* c-comment-only-line-offset: 0 */
-/* c-file-offsets: ((substatement-open . 0) (label . 0)) */
-/* End: */
