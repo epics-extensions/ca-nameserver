@@ -1,5 +1,12 @@
 # Channel Access Name Server Release Notes
 
+## <date> - 2.1.0
+
+* Fixed use-after-free bug.
+* Removed obsolete `JS_FILEWAIT` and `PIOC` code.
+* Added support for Perl Compatible Regular Expressions from the
+ca-gateway module. Improved build configuration.
+
 ## Mon May 11 15:34:18 CST 2014 - 2.0.0.14
 
 * Changed asHost library name to dbCore for R3.15 base.

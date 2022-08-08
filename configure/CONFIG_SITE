@@ -16,28 +16,34 @@
 #   continue building even if conflicts are found.
 CHECK_RELEASE = YES
 
-# Set this when you only want to compile this application
-#   for a subset of the cross-compiled target architectures
-#   that Base is built for.
-#CROSS_COMPILER_TARGET_ARCHS = vxWorks-ppc32
-
 # To install files into a location other than $(TOP) define
 #   INSTALL_LOCATION here.
 #INSTALL_LOCATION=</absolute/path/to/install/top>
 
-# Set this when the IOC and build host use different paths
-#   to the install location. This may be needed to boot from
-#   a Microsoft FTP server say, or on some NFS configurations.
-#IOCS_APPL_TOP = </IOC's/absolute/path/to/install/top>
+# Set this to compile a self-contained executable
+#STATIC_BUILD = YES
 
-# For application debugging purposes, override the HOST_OPT and/
-#   or CROSS_OPT settings from base/configure/CONFIG_SITE
-#HOST_OPT = NO
-#CROSS_OPT = NO
+# Set one of these to use Perl Compatible Regular Expressions.
+#   Use this if libpcre is a system library (e.g. Linux)
+#SYS_PCRE = YES
+#   or these if it has been installed elsewhere
+#USE_PCRE = YES
+#PCRE = /path/to/pcre/installation
 
-# These allow developers to override the CONFIG_SITE variable
-# settings without having to modify the configure/CONFIG_SITE
-# file itself.
+# Path to the GNU Regex library, available from
+#   https://epics.anl.gov/extensions/gnuregex/index.php
+#   This isn't needed on Linux, or if PCRE (above) is configured
+#REGEX = /path/to/GNU/regex/installation
+
+# Set this to support DENY FROM <host ...> in the pvlist file.
+#   Alternative is to set EPICS_CAS_IGNORE_ADDR_LIST
+USE_DENYFROM = YES
+
+# Set this to support negative regex patterns in the pvlist file.
+#USE_NEG_REGEXP = YES
+
+# Allow developers to override the above CONFIG_SITE variables
+# without having to edit this file directly.
 -include $(TOP)/../CONFIG_SITE.local
 -include $(TOP)/configure/CONFIG_SITE.local
 

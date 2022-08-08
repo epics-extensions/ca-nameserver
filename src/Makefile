@@ -1,58 +1,45 @@
 TOP = ..
 include $(TOP)/configure/CONFIG
 
-#USR_CXXFLAGS += -DPIOC
-#USR_CXXFLAGS += -DJS_FILEWAIT
-USR_CXXFLAGS += -DUSE_DENYFROM
-#STATIC_BUILD=YES
-
-#ifeq ($(OS_CLASS),solaris)
-## Debugging options
-#DEBUGCMD = purify -first-only -chain-length=30  $($(ANSI)_$(CMPLR))
-#HOST_OPT=NO
-#endif
-
-# Purify
-#PURIFY=YES
-#ifeq ($(PURIFY),YES)
-#ifeq ($(OS_CLASS),solaris)
-#PURIFY_FLAGS = -first-only -chain-length=26 -max_threads=256
-## Put the cache files in the appropriate bin directory
-#PURIFY_FLAGS += -always-use-cache-dir -cache-dir=$(shell $(PERL) $(TOP)/config/fullPathName.pl .)
-#DEBUGCMD = purify $(PURIFY_FLAGS)
-#endif
-#endif
-
-# turns warnings into errors
-#USR_CXXFLAGS = +p
-
-# turns on all warnings
-#HOST_WARN=YES
-#CXXCMPLR = STRICT
-
-#CXXCMPLR = NORMAL
-#CCC_NORMAL = $(CCC)
-
-PROD_LIBS	+= cas
-
-ifdef BASE_3_15
-PROD_LIBS	+= dbCore
-else
-PROD_LIBS	+= asHost
+ifeq ($(USE_DENYFROM), YES)
+  USR_CXXFLAGS += -DUSE_DENYFROM
+endif
+ifeq ($(USE_NEG_REGEXP), YES)
+  USR_CXXFLAGS += -DUSE_NEG_REGEXP
 endif
 
-PROD_LIBS	+= ca
-PROD_LIBS	+= gdd
-PROD_LIBS	+= Com
+# Build with PCRE or Regex
+ifeq ($(SYS_PCRE), YES)
+  # Use system-supplied PCRE library
+  USR_CXXFLAGS += -DUSE_PCRE
+  PROD_SYS_LIBS += pcre
+else ifeq ($(USE_PCRE), YES)
+  # Use external PCRE library
+  USR_CXXFLAGS += -DUSE_PCRE
+  USR_INCLUDES += -I$(PCRE)/include
+  PROD_LIBS += pcre
+  pcre_DIR = $(firstword $(wildcard $(PCRE)/lib/$(T_A) $(PCRE)/lib))
+else ifneq ($(strip $(REGEX)),)
+  # Use external GNU Regex library
+  USR_INCLUDES += -I$(REGEX)/include
+  PROD_LIBS += regex
+  regex_DIR = $(firstword $(wildcard $(REGEX)/lib/$(T_A) $(REGEX)/lib))
+else ifneq ($(OS_CLASS), Linux)
+  # Must be a system-supplied GNU Regex library,
+  # except on Linux where it's part of libc
+  PROD_SYS_LIBS += regex
+endif
 
-cas_DIR  = $(EPICS_BASE_LIB)
-ca_DIR  = $(EPICS_BASE_LIB)
-asHost_DIR  = $(EPICS_BASE_LIB)
-Com_DIR = $(EPICS_BASE_LIB)
-gdd_DIR = $(EPICS_BASE_LIB)
+# From PCAS
+PROD_LIBS += cas gdd
 
-SYS_PROD_LIBS_solaris := nsl
-SYS_PROD_LIBS_WIN32 := ws2_32 advapi32 user32 gnurx
+ifdef EPICS_BASE_HOST_LIBS
+  PROD_LIBS += $(EPICS_BASE_HOST_LIBS)
+else
+  PROD_LIBS += dbCore ca Com
+endif
+
+PROD_SYS_LIBS_WIN32 = ws2_32 advapi32 user32
 
 SRCS += directoryServer.cc
 SRCS += dirfmgr.cc
