@@ -6,6 +6,7 @@
  * Initial release September 2001
 */
 
+#include <time.h>
 //#include <stdio.h>
 //#include <string.h>
 #include <sys/stat.h>
@@ -30,6 +31,7 @@
 #endif
 
 #define WAITSECONDS 5
+#define MIN_RESTART_INTERVAL 60
 
 //prototypes
 static int parseDirectoryFile (const char *pFileName);
@@ -387,43 +389,52 @@ static void processPendingList (epicsTime now,double tooLong){
 */
 static int start_daemon()
 {
+	time_t tPrev = 0;
+
 	signal(SIGCHLD, sig_chld);
 	parent_pgrp=getpgrp();
+
 	switch(fork()) {
-		case -1:	//error
-			perror("Cannot create daemon process");
-			return -1;
-		case 0:		//child
-			setpgid (0, 0);
-			setsid();
-			break;
-		default:	//parent
-			return 1;
+	case -1:	//error
+		perror("Cannot create restarter process");
+		return -1;
+	case 0:		//child
+		break;
+	default:	//parent
+		return 1;
 	}
+
+	// Make the restarter the leader of a new session
+	setpgid (0, 0);
+	setsid();
 
 	parent_pid=getpid();
 	do {
-		switch(child_pid=fork()){
-			case -1:	//error
-				perror("Cannot create daemon process");
-				return -1;
-			case 0:     //child
-				signal(SIGBUS, sig_dont_dump);
-				signal(SIGSEGV, sig_dont_dump);
-				break;
-			default:	//parent
-				signal(SIGTERM, kill_the_kid);
-				pause();	//Wait here for any signal.
-				break;
-		}
-	} while (child_pid );
+		time_t tNow;
 
-	if( child_pid == -1) {
-		return 1;
-	}
-	else {
-		return 0;
-	}
+		time(&tNow);
+		if ((tNow - tPrev) < MIN_RESTART_INTERVAL) {
+			fprintf(stderr, "NameServer only lived for %ld seconds\n",
+				tNow - tPrev);
+				exit(1);
+		}
+		tPrev = tNow;
+
+		switch(child_pid=fork()) {
+		case -1:	//error
+			perror("Cannot create NameServer process");
+			return -1;
+		case 0:     //child
+			signal(SIGBUS, sig_dont_dump);
+			signal(SIGSEGV, sig_dont_dump);
+			break;
+		default:	//parent
+			signal(SIGTERM, kill_the_kid);
+			pause();	//Wait here for any signal.
+			break;
+		}
+	} while (child_pid);
+	return 0;
 }
 
 
