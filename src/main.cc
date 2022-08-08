@@ -1,21 +1,12 @@
 /*! \file main.cc
- * \brief TBD
  *
  * \author Joan Sage
- * \Revision History:
- * Initial release September 2001
 */
 
 #include <time.h>
-//#include <stdio.h>
-//#include <string.h>
 #include <sys/stat.h>
 #ifdef linux
-#include <libgen.h>
 #include <sys/wait.h>
-#endif
-#ifdef SOLARIS
-#include <libgen.h>
 #endif
 
 #include <fdmgr.h>
@@ -93,7 +84,6 @@ extern int main (int argc, char *argv[])
 	unsigned 	hash_table_size = 0;			//!< user requested size
 	aitBool		forever = aitTrue;
  	epicsTime	begin(epicsTime::getCurrent());
-	//int			nPV = DEFAULT_HASH_SIZE;		//!< default pv hash table size
 	int			pv_count;						//!< count of pv's in startup lists
 #ifndef WIN32
 	int			daemon_status;					//!< did the forks work?
@@ -205,6 +195,10 @@ extern int main (int argc, char *argv[])
 
 
 #ifndef WIN32
+	if ( cd_home_dir(home_dir) == -1) {
+		return -1;
+	}
+
 	if(server_mode) {
 		log_message(INFO, "Starting daemon\n");
 		daemon_status = start_daemon();
@@ -214,10 +208,6 @@ extern int main (int argc, char *argv[])
 	}
 	else{
 		parent_pid=getpid();
-	}
-
-    if ( cd_home_dir(home_dir) == -1) {
-		return -1;
 	}
 
     create_killer_script(parent_pid, home_dir, pvlist_file, log_file, fileName);
