@@ -14,19 +14,24 @@
  *  nameserver Version and Credits Information
 **********************************************************************/
 
-#ifndef INCversionh
-#define INCversionh 1
+#ifndef INC_version_H
+#define INC_version_H
 
 #define NS_VERSION       2
 #define NS_REVISION      1
 #define NS_MODIFICATION  0
+#define NS_SNAPSHOT      "-DEV"
 
 #define stringOf(TOKEN) #TOKEN
+#define xstringOf(TOKEN) stringOf(TOKEN)
 #define NS_VERSION_STRING "Nameserver Version " \
-    stringOf(NS_VERSION) "." stringOf(NS_REVISION) "." stringOf(NS_MODIFICATION)
+    xstringOf(NS_VERSION) "." \
+    xstringOf(NS_REVISION) "." \
+    xstringOf(NS_MODIFICATION) \
+    NS_SNAPSHOT
 
 #define NS_CREDITS_STRING  \
     "Developed at Thomas Jefferson National Accelerator Facility and\n" \
     "Argonne National Laboratory, by Joan Sage and Janet Anderson\n\n"
 
-#endif /* INCversionh */
+#endif /* INC_version_H */
