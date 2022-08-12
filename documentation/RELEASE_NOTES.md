@@ -1,11 +1,13 @@
 # Channel Access Name Server Release Notes
 
-## <date> - 2.1.0
+## 2022/08/12 - 2.1.0
 
+* Switching back to 3-component version numbers for this release.
 * Fixed use-after-free bug.
 * Removed obsolete `JS_FILEWAIT` and `PIOC` code.
-* Added support for Perl Compatible Regular Expressions from the
-ca-gateway module. Improved build configuration.
+* Added support for Perl Compatible Regular Expressions, using the
+implementation from the ca-gateway module. Improved the configuration of
+which regex engine to compile with, now in `configure/CONFIG_SITE`.
 
 ## Mon May 11 15:34:18 CST 2014 - 2.0.0.14
 

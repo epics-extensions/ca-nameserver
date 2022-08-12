@@ -1,5 +1,5 @@
 /*************************************************************************\
-* Copyright (c) 2002 The University of Chicago, as Operator of Argonne
+* Copyright (c) 2022 UChicago Argonne LLC, as Operator of Argonne
 * National Laboratory.
 * Copyright (c) 2002 Southeastern Universities Research Association, as
 * Operator of Thomas Jefferson National Accelerator Facility.
@@ -11,8 +11,8 @@
 /* version.h */
 
 /************************DESCRIPTION***********************************
- *  nameserver Version and Credits Information
-**********************************************************************/
+*  nameserver Version and Credits Information
+***********************************************************************/
 
 #ifndef INC_version_H
 #define INC_version_H
@@ -20,7 +20,7 @@
 #define NS_VERSION       2
 #define NS_REVISION      1
 #define NS_MODIFICATION  0
-#define NS_SNAPSHOT      "-DEV"
+#define NS_SNAPSHOT      ""
 
 #define stringOf(TOKEN) #TOKEN
 #define xstringOf(TOKEN) stringOf(TOKEN)
