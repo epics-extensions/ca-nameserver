@@ -2,7 +2,8 @@
 
 ## 2022/08/12 - 2.1.0
 
-* Switching back to 3-component version numbers for this release.
+* Converted to build as a stand-alone EPICS module.
+* Switching back to 3-component version numbers for this release (not semver).
 * Fixed use-after-free bug.
 * Removed obsolete `JS_FILEWAIT` and `PIOC` code.
 * Added support for Perl Compatible Regular Expressions, using the
