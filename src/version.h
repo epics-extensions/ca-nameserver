@@ -19,8 +19,8 @@
 
 #define NS_VERSION       2
 #define NS_REVISION      1
-#define NS_MODIFICATION  0
-#define NS_SNAPSHOT      ""
+#define NS_MODIFICATION  1
+#define NS_SNAPSHOT      "-DEV"
 
 #define stringOf(TOKEN) #TOKEN
 #define xstringOf(TOKEN) stringOf(TOKEN)
