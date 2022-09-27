@@ -36,7 +36,8 @@ const unsigned pvServer::pvListNElem = NELEMENTS (pvServer::pvList);
 //
 // pvServer::pvServer()
 //
-pvServer::pvServer ( const char * const pvPrefix )
+pvServer::pvServer ( const char * const pvPrefix ) :
+    pTimerQueue(NULL)
 {
     nsPV *pPV;
     pvInfo *pPVI;
