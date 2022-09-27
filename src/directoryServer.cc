@@ -171,7 +171,7 @@ directoryServer::directoryServer( unsigned pvCount,const char* const pvPrefix) :
 	signal(SIGINT, sigusr1);
 #endif
 	this->stringResTbl.setTableSize(pvCount);
-	this->iocResTbl.setTableSize(MAX_IOCS);
+	this->iocResTbl.setTableSize(pvCount / 1000);
 	this->neverResTbl.setTableSize(pvCount);
 
 	stats.request = 0;
