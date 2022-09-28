@@ -31,9 +31,8 @@
 #define SIG_LIST "signal.list"
 // The suffix of a pv which exists on every ioc in the form 'iocname<suffix>'
 #define HEARTBEAT ":heartbeat"
-// Next two can be defined to suit your site
+// This can be overridden on the command-line with a -h option
 #define DEFAULT_HASH_SIZE 300000
-#define MAX_IOCS 300
 
 #define HOST_NAME_SZ 80
 #define PV_NAME_SZ 80
